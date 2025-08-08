@@ -1,0 +1,17 @@
+[
+    {
+        "username": "Geet Sharma",
+        "item": {
+            "id": 2,
+            "artist": "Ashi Sharma",
+            "title": "Krishna’s Raas Leela",
+            "description": "A vibrant Pattachitra painting illustrating Lord Krishna dancing with the Gopis on the banks of the Yamuna. The artwork features intricate borders, mythological motifs and is painted in brilliant natural colors on cloth canvas using traditional methods.",
+            "Materials": "Cotton cloth, natural mineral and vegetable dyes, bamboo brush",
+            "state": "Odisha",
+            "style": "Pattachitra",
+            "price": "2000",
+            "image": "uploads\\Ashi Sharma_20250716045922_Pattachitra-painting-Kailash-Pradhan-04.jpg",
+            "upload_date": "2025-07-16"
+        }
+    }
+]

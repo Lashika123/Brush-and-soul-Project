@@ -1,0 +1,96 @@
+[
+    {
+        "username": "Raj",
+        "password": "4f69905a2fdf3232f20e16f046e3c64563dc6dee02a6659c9d67ba0d2845c6a8",
+        "user_type": "artist",
+        "email": "ashi@gmail.com"
+    },
+    {
+        "username": "Raj_01",
+        "password": "Raj@1234",
+        "user_type": "artist",
+        "email": "Raj@gmail.com"
+    },
+    {
+        "username": "Raj_02",
+        "password": "Raj1234@",
+        "user_type": "artist",
+        "email": "Raj02@gmail.com"
+    },
+    {
+        "username": "Raj_20",
+        "password": "Raj1234!",
+        "user_type": "artist",
+        "email": "Raj0@gmail.com"
+    },
+    {
+        "username": "Ashi Sharma",
+        "password": "Ashi@1212",
+        "user_type": "artist",
+        "email": "ashisharma@gmail.com"
+    },
+    {
+        "username": "Rahul Rai",
+        "password": "4ec2f5a6391fdfbb6525b21d2dc0c3c1494ed6386dfb09470a64dc93d12bbe28",
+        "user_type": "artist",
+        "email": "rai@gmail.com"
+    },
+    {
+        "username": "Rahulraj",
+        "password": "37daf3d0177db36f8d1e89d8b7b947cd0094012588d2284a09dacf131b358df9",
+        "user_type": "artist",
+        "email": "raj12@gmail.com"
+    },
+    {
+        "username": "Priya Rai",
+        "password": "4ec2f5a6391fdfbb6525b21d2dc0c3c1494ed6386dfb09470a64dc93d12bbe28",
+        "user_type": "customer",
+        "email": "priya@gmail.com"
+    },
+    {
+        "username": "Yash",
+        "password": "454090818b7d3bba2517f7b557fdef9e718a14d77d54c3d81a8ca18320ca0de7",
+        "user_type": "artist",
+        "email": "yash@gmail.com"
+    },
+    {
+        "username": "Yash12",
+        "password": "454090818b7d3bba2517f7b557fdef9e718a14d77d54c3d81a8ca18320ca0de7",
+        "user_type": "artist",
+        "email": "yash12@gmail.com"
+    },
+    {
+        "username": "Geet Sharma",
+        "password": "0cb6a8b0e51e0182f27333367a99963666a63c19242c4a7551b3e70b1f46766e",
+        "user_type": "customer",
+        "email": "geet@gmail.com"
+    },
+    {
+        "username": "Priya Sharma",
+        "password": "6b8f37b74f31de030800ad1a718b874e299530cd945ccff0c8df720fe4860f02",
+        "user_type": "artist",
+        "registration_date": "2025-07-21",
+        "email": "priy12@gmail.com"
+    },
+    {
+        "username": "Yash Raj",
+        "password": "03d2cdf6ec7fc9e46d1ef751bcceb0844a932976723998598cd09ffdfd4e8148",
+        "user_type": "customer",
+        "registration_date": "2025-07-21",
+        "email": "yashraj@gmail.com"
+    },
+    {
+        "username": "Deepali",
+        "password": "9eba4098bbd76ed1f516902ea849f4cb8dee5ccb615b4b259cd6a1ef9575d10d",
+        "user_type": "artist",
+        "registration_date": "2025-07-21",
+        "email": "deepali@gmail.com"
+    },
+    {
+        "username": "Riya Sharma",
+        "password": "2eaef78b5fdc9d53cc23c78a75dcf33962801be733272d55d6f4772b394c792e",
+        "user_type": "artist",
+        "registration_date": "2025-07-21",
+        "email": "riya123@gmail.com"
+    }
+]

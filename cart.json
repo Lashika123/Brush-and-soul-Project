@@ -1,0 +1,48 @@
+[
+    {
+        "username": "Riya Sharma",
+        "item": {
+            "id": 1,
+            "name": "Acrylic Paint",
+            "price": 2000,
+            "category": "Paints",
+            "description": "Fast-drying, water-based, vibrant colors",
+            "image": "D:\\Brush and soul\\uploads\\materials\\20250723022156_paints.JPG",
+            "artist": "Riya Sharma",
+            "listed_date": "2025-07-23"
+        },
+        "added_date": "2025-07-23"
+    },
+    {
+        "username": "Deepali",
+        "item": {
+            "id": 1,
+            "artist": "Riya Sharma",
+            "title": "Wedding Festivities Under the Sacred Tree",
+            "description": "A vibrant Warli painting showing villagers celebrating a wedding with dancers around a large sacred tree, featuring traditional earthy tones and geometric figures.",
+            "materials": "Digitally printed on high-quality, eco-friendly wallpaper with fade-resistant inks.",
+            "state": "Maharashtra",
+            "style": "Warli",
+            "price": 5000,
+            "image": "uploads\\Riya Sharma_20250723002254_TRNL-AABHA-012-450x450.jpg",
+            "upload_date": "2025-07-23"
+        },
+        "added_date": "2025-07-23"
+    },
+    {
+        "username": "Deepali",
+        "item": {
+            "id": 1,
+            "artist": "Riya Sharma",
+            "title": "Wedding Festivities Under the Sacred Tree",
+            "description": "A vibrant Warli painting showing villagers celebrating a wedding with dancers around a large sacred tree, featuring traditional earthy tones and geometric figures.",
+            "materials": "Digitally printed on high-quality, eco-friendly wallpaper with fade-resistant inks.",
+            "state": "Maharashtra",
+            "style": "Warli",
+            "price": 5000,
+            "image": "uploads\\Riya Sharma_20250723002254_TRNL-AABHA-012-450x450.jpg",
+            "upload_date": "2025-07-23"
+        },
+        "added_date": "2025-07-23"
+    }
+]

@@ -1,0 +1,62 @@
+[
+    {
+        "id": 1,
+        "artist": "Riya Sharma",
+        "upload_date": "2025-07-23",
+        "title": "Nritya Sangam",
+        "description": "A vibrant Warli painting showing villagers celebrating a wedding with dancers around a large sacred tree, featuring traditional earthy tones and geometric figures.",
+        "materials": "Digitally printed on high-quality, eco-friendly wallpaper with fade-resistant inks.",
+        "state": "Maharashtra",
+        "style": "Warli",
+        "price": 5000,
+        "image": "uploads\\Riya Sharma_20250723002254_TRNL-AABHA-012-450x450.jpg"
+    },
+    {
+        "id": 2,
+        "artist": "Riya Sharma",
+        "title": "Harmony of the Herd",
+        "description": "A stylized depiction of deer gathered in a forest, rendered with intricate dots and lines.",
+        "materials": "Acrylic on canvas",
+        "state": "Madhya Pradesh",
+        "style": "Gond Art",
+        "price": 4000,
+        "image": "uploads\\Riya Sharma_20250723014227_Capture.JPG",
+        "upload_date": "2025-07-23"
+    },
+    {
+        "id": 3,
+        "artist": "Priya Sharma",
+        "title": "Madhubani Painting",
+        "description": "A peacock in Madhubani painting symbolizes divine love, prosperity, and romance, depicted with vibrant colors, intricate patterns, and geometric motifs that fill every space, reflecting the art’s deep connection to nature and cultural beliefs",
+        "materials": "Natural dyes, Handmade paper",
+        "state": " Bihar",
+        "style": "Madhubani",
+        "price": 2500.0,
+        "image": "uploads\\Priya Sharma_20250723031629_Madhubani.jpg",
+        "upload_date": "2025-07-23"
+    },
+    {
+        "id": 4,
+        "artist": "Rajesh Patil",
+        "title": "Warli Art",
+        "description": "Tribal geometric paintings representing daily life.",
+        "materials": "White pigment, MUD background",
+        "state": "Maharashtra",
+        "style": "Warli",
+        "price": 1800,
+        "image": "uploads\\Rajesh Patil_20250723032349_warli1.jpg",
+        "upload_date": "2025-07-23"
+    },
+    {
+        "id": 5,
+        "artist": "Sunita Reddy",
+        "title": "Kalamkari",
+        "description": "Narrative textile painting with hand-drawn motifs.",
+        "materials": "Natural dyes, Cotton cloth",
+        "state": "Andhra Pradesh",
+        "style": " Kalamkari",
+        "price": 3200,
+        "image": "uploads\\Sunita Reddy_20250723032942_kalamkari.jpg",
+        "upload_date": "2025-07-23"
+    }
+]

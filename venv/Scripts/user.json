@@ -1,0 +1,38 @@
+[
+    {
+        "username": "Riya",
+        "password": "e74e25f443a6a096909b3aa435049d41198b2ad6623bed580512e8892f1f803b",
+        "user_type": "artist",
+        "email": "riya@gmail.com"
+    },
+    {
+        "username": "Riya Jain",
+        "password": "e74e25f443a6a096909b3aa435049d41198b2ad6623bed580512e8892f1f803b",
+        "user_type": "artist",
+        "email": "riya23@gmail.com"
+    },
+    {
+        "username": "Jiya Jain",
+        "password": "a6d9aa3d1ec7208bced8f48e61c969acefea8dab764bf53dcd1702e87a20e37a",
+        "user_type": "artist",
+        "email": "jiya233@gmail.com"
+    },
+    {
+        "username": "Jay Rathor",
+        "password": "a4758d5673e1105ded953d66b46eae177c2788f054e572f9c62bab086fa51fc6",
+        "user_type": "artist",
+        "email": "jay@gmail.com"
+    },
+    {
+        "username": "Jaya Rathor",
+        "password": "a4758d5673e1105ded953d66b46eae177c2788f054e572f9c62bab086fa51fc6",
+        "user_type": "artist",
+        "email": "jaya@gmail.com"
+    },
+    {
+        "username": "Ashi Sharma",
+        "password": "4418cdda0fad5613479c47d191a8f8795abc10afa721fdd8ae6ff94684177644",
+        "user_type": "artist",
+        "email": "ashi@gmail.com"
+    }
+]
