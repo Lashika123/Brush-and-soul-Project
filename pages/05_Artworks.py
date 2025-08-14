@@ -15,9 +15,9 @@ import streamlit as st
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# --------------------------------------------------------------------------- #
-#  Advanced Type Definitions and Protocols                                   #
-# --------------------------------------------------------------------------- #
+# ─────────────────────────────────────────────────────────────────────────────
+#  TYPE DEFINITIONS & PROTOCOLS
+# ─────────────────────────────────────────────────────────────────────────────
 class FileOperationProtocol(Protocol):
     """Protocol for file operations"""
     def save_uploaded_file(self, file: Any, subdirectory: str = "") -> Optional[str]: ...
@@ -120,15 +120,24 @@ class ArtworkData:
             upload_date=data.get('upload_date', str(datetime.date.today()))
         )
 
-# --------------------------------------------------------------------------- #
-#  Advanced File Manager                                                      #
-# --------------------------------------------------------------------------- #
+# ─────────────────────────────────────────────────────────────────────────────
+#  FILE MANAGER - FIXED
+# ─────────────────────────────────────────────────────────────────────────────
 class FileManager:
-    """Advanced file operations manager with comprehensive error handling"""
+    """FIXED - File operations manager with comprehensive error handling"""
     
     def __init__(self, config: UIConfiguration):
         self.config = config
         self._ensure_uploads_directory()
+        self.operations_available = True
+        try:
+            from utils import save_uploaded_file
+            self.save_uploaded_file_util = save_uploaded_file
+            logger.info("File operations initialized successfully")
+        except ImportError as e:
+            logger.error(f"File utilities not available: {e}")
+            self.operations_available = False
+            st.error(f"File operations not available: {e}")
     
     def _ensure_uploads_directory(self) -> None:
         """Ensure uploads directory exists"""
@@ -136,21 +145,32 @@ class FileManager:
         uploads_path.mkdir(exist_ok=True)
     
     def save_uploaded_file(self, file: Any, username: str) -> Optional[str]:
-        """Save uploaded file with unique naming"""
+        """FIXED - Save uploaded file with enhanced error handling"""
         if not file:
+            logger.warning("No file provided to save")
+            return None
+        
+        if not self.operations_available:
+            logger.error("File operations not available")
+            st.error("File operations are not available")
+            return None
+        
+        # Validate file size (max 10MB)
+        if hasattr(file, 'size') and file.size > self.config.max_file_size_mb * 1024 * 1024:
+            error_msg = f"File size too large. Maximum {self.config.max_file_size_mb}MB allowed."
+            logger.error(error_msg)
+            st.error(error_msg)
             return None
         
         try:
-            timestamp = datetime.datetime.now().strftime('%Y%m%d%H%M%S')
-            filename = f"{username}_{timestamp}_{file.name}"
-            filepath = Path(self.config.uploads_directory) / filename
-            
-            with open(filepath, "wb") as f:
-                f.write(file.getbuffer())
-            
-            logger.info(f"File saved successfully: {filepath}")
-            return str(filepath)
-            
+            logger.info(f"Saving file: {file.name} for user: {username}")
+            result = self.save_uploaded_file_util(file, "artworks")
+            if result:
+                logger.info(f"File saved successfully: {result}")
+                return result
+            else:
+                logger.error("File save utility returned None")
+                return None
         except Exception as e:
             logger.error(f"Error saving file: {e}")
             st.error(f"Error saving file: {e}")
@@ -162,27 +182,40 @@ class FileManager:
             return False
         return Path(filepath).exists()
 
-# --------------------------------------------------------------------------- #
-#  Fixed Database Manager                                                     #
-# --------------------------------------------------------------------------- #
+    def delete_file(self, filepath: str) -> bool:
+        """Delete file if it exists"""
+        try:
+            if filepath and Path(filepath).exists():
+                Path(filepath).unlink()
+                return True
+            return False
+        except Exception as e:
+            logger.error(f"Error deleting file {filepath}: {e}")
+            return False
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  DATABASE MANAGER - FIXED
+# ─────────────────────────────────────────────────────────────────────────────
 class DatabaseManager:
-    """Advanced database operations manager with comprehensive error handling"""
+    """FIXED - Database operations manager with comprehensive error handling"""
     
     def __init__(self):
         self._operations = self._initialize_database_operations()
         if not self._operations:
+            logger.error("Failed to initialize database operations")
             st.error("Failed to initialize database operations. Please check your database connection.")
     
     def _initialize_database_operations(self) -> Optional[ArtworkOperationProtocol]:
-        """Initialize database operations with proper error handling"""
+        """FIXED - Initialize database operations with proper error handling"""
         try:
             from utils import (save_artwork, get_artist_artworks, update_artwork, 
                              remove_artwork, add_to_cart, get_all_artworks)
             
             class DatabaseOperations:
                 def save_artwork(self, artwork_data: Dict[str, Any]) -> Optional[int]:
+                    logger.info(f"DatabaseOperations.save_artwork called with: {artwork_data}")
                     result = save_artwork(artwork_data)
-                    logger.info(f"save_artwork called with data: {artwork_data}, result: {result}")
+                    logger.info(f"save_artwork result: {result}")
                     return result
                 
                 def get_artist_artworks(self, username: str) -> List[Dict[str, Any]]:
@@ -213,30 +246,40 @@ class DatabaseManager:
             return None
     
     def create_artwork(self, artwork: ArtworkData) -> bool:
-        """Create new artwork in database"""
+        """FIXED - Create new artwork in database with comprehensive error handling"""
         if not self._operations:
+            logger.error("Database operations not available")
             st.error("Database operations not available")
             return False
             
         try:
+            # Prepare artwork data
             artwork_dict = artwork.to_dict()
+            
             # Remove None artwork_id for new artworks
             if 'id' in artwork_dict and artwork_dict['id'] is None:
                 del artwork_dict['id']
             
-            logger.info(f"Attempting to save artwork: {artwork_dict}")
+            logger.info(f"Attempting to save artwork to database: {artwork_dict}")
+            
+            # Call database operation
             result = self._operations.save_artwork(artwork_dict)
             
-            if result is not None:
-                logger.info(f"Artwork saved successfully with ID: {result}")
+            logger.info(f"Database save result: {result}")
+            
+            # Check result thoroughly
+            if result is not None and isinstance(result, int) and result > 0:
+                logger.info(f"✅ Artwork saved successfully with ID: {result}")
                 return True
             else:
-                logger.error("Failed to save artwork - database returned None")
+                logger.error(f"❌ Database save failed - result: {result}")
                 st.error("Failed to save artwork to database")
                 return False
                 
         except Exception as e:
-            logger.error(f"Error creating artwork: {e}")
+            logger.error(f"❌ Exception in create_artwork: {e}")
+            import traceback
+            logger.error(f"Full traceback: {traceback.format_exc()}")
             st.error(f"Database error: {e}")
             return False
     
@@ -310,15 +353,20 @@ class DatabaseManager:
             
         try:
             artwork_dict = artwork.to_dict()
-            return self._operations.add_to_cart(username, artwork_dict)
+            # Ensure proper format for cart
+            artwork_dict['title'] = artwork.title  # Map title for cart compatibility
+            result = self._operations.add_to_cart(username, artwork_dict)
+            if result:
+                logger.info(f"Artwork {artwork.title} added to cart for {username}")
+            return result
         except Exception as e:
             logger.error(f"Error adding to cart: {e}")
             st.error(f"Error adding to cart: {e}")
             return False
 
-# --------------------------------------------------------------------------- #
-#  Advanced Session Management                                                #
-# --------------------------------------------------------------------------- #
+# ─────────────────────────────────────────────────────────────────────────────
+#  SESSION MANAGEMENT
+# ─────────────────────────────────────────────────────────────────────────────
 class SessionManager:
     """Advanced session state management with validation"""
     
@@ -350,9 +398,9 @@ class SessionManager:
         current_state = st.session_state['show_edit_form'].get(artwork_id, False)
         st.session_state['show_edit_form'][artwork_id] = not current_state
 
-# --------------------------------------------------------------------------- #
-#  Abstract UI Component System                                               #
-# --------------------------------------------------------------------------- #
+# ─────────────────────────────────────────────────────────────────────────────
+#  UI COMPONENTS - FULLY FIXED
+# ─────────────────────────────────────────────────────────────────────────────
 class UIComponent(ABC):
     """Abstract base class for UI components"""
     
@@ -367,602 +415,576 @@ class UIComponent(ABC):
         pass
 
 class StyleManager(UIComponent):
-    """Handles comprehensive brown CSS styling with corrected buttons"""
+    """Handles comprehensive brown CSS styling - FULLY CORRECTED VERSION"""
     
     def render(self, user_context: UserContext) -> None:
-        """Apply comprehensive brown CSS styling with corrected Edit/Delete buttons"""
+        """Apply comprehensive brown CSS styling with all corrections"""
         st.markdown("""
         <style>
-            :root {
-                --primary: #8B4513;        /* Earthy Brown */
-                --secondary: #A0522D;      /* Rust */
-                --accent: #5C4033;         /* Dark Brown */
-                --light: #F8F4E8;          /* Cream */
-                --dark: #343434;           /* Dark Gray */
-                --glass-bg: rgba(255, 255, 255, 0.95);
-                --shadow: 0 8px 32px rgba(139, 69, 19, 0.1);
-                --shadow-hover: 0 12px 40px rgba(139, 69, 19, 0.15);
-            }
-            
-            /* Global App Styling */
-            .stApp {
-                background: linear-gradient(160deg, #f5f1e8 0%, #e8e0d0 100%);
-                font-family: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-                min-height: 100vh;
-            }
-            
-            /* Fix text color issues and add justify alignment */
-            .stApp, .stApp *, h1, h2, h3, h4, h5, h6, p, span, div {
-                color: var(--dark) !important;
-                text-align: justify !important;
-                text-justify: inter-word !important;
-            }
-            
-            /* Override justify for specific elements that should stay centered/left */
-            .main-title, .gallery-header, .art-title {
-                text-align: center !important;
-            }
-            
-            .art-artist {
-                text-align: left !important;
-            }
-            
-            /* Title Styling with Horizontal Line */
+        :root {
+            --primary: #8B4513;
+            --secondary: #A0522D;
+            --accent: #5C4033;
+            --light: #F8F4E8;
+            --dark: #343434;
+            --brown-light: #D2B48C;
+            --brown-medium: #CD853F;
+            --brown-dark: #8B4513;
+            --brown-darker: #5C4033;
+            --brown-lightest: #F5DEB3;
+        }
+        
+        .stApp {
+            background: linear-gradient(160deg, #f5f1e8 0%, #e8e0d0 100%);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: var(--dark);
+        }
+        
+        /* Main Title with Gradient */
+        .main-title {
+            color: var(--accent) !important;
+            font-size: 2.8rem;
+            font-weight: 800;
+            text-align: center !important;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(135deg, var(--accent), var(--primary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            letter-spacing: -0.5px;
+        }
+        
+        .title-divider {
+            width: 80%;
+            height: 4px;
+            background: linear-gradient(90deg, transparent 0%, var(--primary) 20%, var(--secondary) 50%, var(--accent) 80%, transparent 100%);
+            margin: 1rem auto 2rem auto;
+            border-radius: 2px;
+            box-shadow: 0 2px 4px rgba(139, 69, 19, 0.2);
+        }
+        
+        /* Enhanced Art Card - TRANSPARENT DESIGN */
+        .art-card {
+            background: transparent !important;
+            border-radius: 20px;
+            margin-bottom: 2rem;
+            box-shadow: none !important;
+            border: none !important;
+            backdrop-filter: none !important;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            overflow: hidden;
+            position: relative;
+            animation: fadeInUp 0.6s ease-out;
+        }
+        
+        .art-card:hover {
+            transform: translateY(-8px) scale(1.02);
+        }
+        
+        /* Art Card Image Container - ENHANCED */
+        .art-card img {
+            border-radius: 16px;
+            box-shadow: 0 6px 20px rgba(139, 69, 19, 0.25);
+            transition: transform 0.4s ease;
+            margin-bottom: 1.2rem;
+            width: 100%;
+            object-fit: cover;
+            height: 220px;
+        }
+        
+        .art-card:hover img {
+            transform: scale(1.05);
+        }
+        
+        /* Enhanced Art Title - NO WHITE BOX */
+        .art-title {
+            color: var(--accent) !important;
+            font-size: 1.6rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            line-height: 1.3;
+            background: linear-gradient(135deg, var(--accent), var(--primary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            letter-spacing: -0.3px;
+            text-align: center !important;
+            border-bottom: 3px solid var(--primary);
+        }
+        
+        /* Enhanced Artist Name */
+        .art-artist {
+            font-size: 1.1rem;
+            margin-bottom: 1rem;
+            color: var(--secondary) !important;
+            font-style: italic;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            text-align: left !important;
+        }
+        
+        /* Enhanced Price Display */
+        .art-price {
+            font-weight: 800;
+            font-size: 1.4rem;
+            color: var(--primary) !important;
+            margin: 1rem 0;
+            background: linear-gradient(135deg, rgba(139, 69, 19, 0.1), rgba(160, 82, 45, 0.15));
+            border-radius: 12px;
+            border-left: 4px solid var(--primary);
+            display: inline-block;
+            text-shadow: none;
+            box-shadow: 0 2px 8px rgba(139, 69, 19, 0.1);
+            font-family: 'Inter', monospace;
+            letter-spacing: 0.5px;
+            text-align: left !important;
+        }
+        
+        /* No Image Placeholder - CORRECTED */
+        .no-image-placeholder {
+            width: 100%;
+            height: 220px;
+            background: linear-gradient(135deg, rgba(245, 222, 179, 0.4), rgba(210, 180, 140, 0.3));
+            border-radius: 16px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: var(--secondary);
+            font-style: italic;
+            font-size: 1.1rem;
+            border: 2px dashed var(--secondary);
+            margin-bottom: 1.2rem;
+            transition: all 0.3s ease;
+            text-align: center !important;
+        }
+        
+        .no-image-placeholder:hover {
+            background: linear-gradient(135deg, rgba(245, 222, 179, 0.5), rgba(210, 180, 140, 0.4));
+            border-color: var(--primary);
+        }
+        
+        /* CORRECTED BUTTONS - Add to Cart */
+        .stButton > button {
+            background: linear-gradient(135deg, var(--primary), var(--secondary)) !important;
+            color: white !important;
+            border-radius: 12px !important;
+            border: 2px solid var(--primary) !important;
+            font-weight: 700 !important;
+            font-size: 0.95rem !important;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+            width: 100% !important;
+            margin: 0.8rem 0 !important;
+            cursor: pointer !important;
+            box-shadow: 0 4px 12px rgba(139, 69, 19, 0.25) !important;
+            text-transform: uppercase !important;
+            letter-spacing: 0.8px !important;
+            min-height: 48px !important;
+            text-align: center !important;
+            display: block !important;
+            position: relative !important;
+            z-index: 1 !important;
+        }
+        
+        .stButton > button:hover {
+            background: linear-gradient(135deg, var(--accent), var(--primary)) !important;
+            transform: translateY(-3px) scale(1.03) !important;
+            box-shadow: 0 8px 25px rgba(139, 69, 19, 0.35) !important;
+            border-color: var(--accent) !important;
+        }
+        
+        .stButton > button:active {
+            transform: translateY(-1px) scale(1.01) !important;
+            box-shadow: 0 4px 15px rgba(139, 69, 19, 0.3) !important;
+        }
+        
+        .stButton > button:focus {
+            outline: 3px solid var(--primary) !important;
+            outline-offset: 2px !important;
+        }
+        
+        /* Enhanced Expander - CORRECTED */
+        .streamlit-expanderHeader {
+            background: linear-gradient(135deg, var(--primary), var(--secondary)) !important;
+            color: white !important;
+            font-weight: 600 !important;
+            border-radius: 12px !important;
+            text-transform: uppercase !important;
+            letter-spacing: 0.8px !important;
+            font-size: 0.9rem !important;
+            transition: all 0.3s ease !important;
+            text-align: center !important;
+            margin-top: 1rem !important;
+        }
+        
+        .streamlit-expanderHeader:hover {
+            background: linear-gradient(135deg, var(--accent), var(--primary)) !important;
+            transform: scale(1.02) !important;
+        }
+        
+        div[data-testid="stExpander"] {
+            border: 2px solid rgba(139, 69, 19, 0.15) !important;
+            border-radius: 12px !important;
+            overflow: hidden !important;
+            margin: 1rem 0 !important;
+            box-shadow: 0 4px 12px rgba(139, 69, 19, 0.1) !important;
+            background: linear-gradient(135deg, rgba(245, 222, 179, 0.15), rgba(210, 180, 140, 0.1)) !important;
+        }
+        
+        /* Details Section - CORRECTED */
+        .details-section {
+            background: linear-gradient(135deg, rgba(245, 222, 179, 0.25), rgba(210, 180, 140, 0.15));
+            border-radius: 12px;
+            border: 1px solid rgba(139, 69, 19, 0.15);
+            margin: 1rem 0;
+            box-shadow: inset 0 2px 4px rgba(139, 69, 19, 0.1);
+        }
+        
+        .detail-item {
+            padding: 1rem;
+            margin-bottom: 1.2rem;
+            border-bottom: 1px solid rgba(139, 69, 19, 0.15);
+            transition: background-color 0.2s ease;
+        }
+        
+        .detail-item:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+            padding-bottom: 0;
+        }
+        
+        .detail-item:hover {
+            background-color: rgba(245, 222, 179, 0.1);
+            border-radius: 8px;
+            margin: 0 -0.5rem 1.2rem -0.5rem;
+        }
+        
+        .detail-label {
+            font-weight: 700;
+            color: var(--accent);
+            font-size: 1rem;
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            text-align: left !important;
+        }
+        
+        .detail-value {
+            color: var(--dark);
+            line-height: 1.7;
+            text-align: justify !important;
+            text-justify: inter-word !important;
+            font-size: 0.95rem;
+        }
+        
+        /* Description Special Styling - ENHANCED */
+        .description-content {
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.6), rgba(245, 222, 179, 0.3));
+            border-radius: 10px;
+            border-left: 4px solid var(--primary);
+            text-align: justify !important;
+            text-justify: inter-word !important;
+            line-height: 1.7;
+            margin-top: 0.5rem;
+            box-shadow: 0 2px 8px rgba(139, 69, 19, 0.1);
+            font-size: 0.95rem;
+        }
+        
+        /* Form Container - ENHANCED */
+        .form-container {
+            background: linear-gradient(135deg, rgba(245, 222, 179, 0.3), rgba(210, 180, 140, 0.2));
+            border-radius: 12px;
+            border: 1px solid rgba(139, 69, 19, 0.2);
+            margin: 1rem 0;
+        }
+        
+        /* Form Styling - IMPROVED */
+        .stTextInput > div > div > input,
+        .stTextArea > div > div > textarea,
+        .stNumberInput > div > div > input,
+        .stSelectbox > div > div > select {
+            border-radius: 10px !important;
+            border: 2px solid var(--brown-light) !important;
+            background: rgba(255, 255, 255, 0.95) !important;
+            font-size: 1rem !important;
+            transition: all 0.3s ease !important;
+            color: var(--dark) !important;
+        }
+        
+        .stTextInput > div > div > input:focus,
+        .stTextArea > div > div > textarea:focus,
+        .stNumberInput > div > div > input:focus,
+        .stSelectbox > div > div > select:focus {
+            border-color: var(--primary) !important;
+            box-shadow: 0 0 0 3px rgba(139, 69, 19, 0.15) !important;
+            background: white !important;
+            outline: none !important;
+        }
+        
+        .stTextInput > div > div > input::placeholder,
+        .stTextArea > div > div > textarea::placeholder {
+            color: var(--brown-medium) !important;
+            font-style: italic !important;
+        }
+        
+        /* File Uploader - ENHANCED */
+        .stFileUploader {
+            background: linear-gradient(135deg, rgba(245, 222, 179, 0.3), rgba(210, 180, 140, 0.2)) !important;
+            border: 3px dashed var(--secondary) !important;
+            border-radius: 16px !important;
+            text-align: center !important;
+            transition: all 0.3s ease !important;
+        }
+        
+        .stFileUploader:hover {
+            border-color: var(--primary) !important;
+            background: linear-gradient(135deg, rgba(245, 222, 179, 0.4), rgba(210, 180, 140, 0.3)) !important;
+            box-shadow: 0 4px 12px rgba(139, 69, 19, 0.2) !important;
+        }
+        
+        /* Brown Cards */
+        .brown-card {
+            background: linear-gradient(135deg, rgba(245, 222, 179, 0.3), rgba(210, 180, 140, 0.2));
+            border: 2px solid var(--brown-light);
+            border-radius: 12px;
+            margin: 1rem 0;
+            box-shadow: 0 4px 12px rgba(139, 69, 19, 0.15);
+        }
+        
+        /* Gallery Header */
+        .gallery-header {
+            color: var(--primary) !important;
+            font-size: 2rem;
+            font-weight: 700;
+            text-align: center !important;
+            margin-bottom: 1.5rem;
+        }
+        
+        /* Empty State */
+        .empty-state {
+            text-align: center !important;
+            font-style: italic;
+            color: var(--secondary);
+            background: linear-gradient(135deg, rgba(245, 222, 179, 0.5), rgba(210, 180, 140, 0.3));
+            border-radius: 16px;
+            border: 2px dashed var(--secondary);
+            margin: 2rem 0;
+        }
+        
+        .empty-state::before {
+            content: "🎨";
+            display: block;
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            color: var(--secondary);
+        }
+        
+        /* Mobile Responsiveness - ENHANCED */
+        @media (max-width: 768px) {
             .main-title {
-                color: var(--accent) !important;
-                font-size: 2.8rem;
-                font-weight: 800;
-                text-align: center !important;
-                margin-bottom: 0.5rem;
-                background: linear-gradient(135deg, var(--accent), var(--primary));
-                -webkit-background-clip: text;
-                -webkit-text-fill-color: transparent;
-                background-clip: text;
-                letter-spacing: -0.5px;
+                font-size: 2.2rem;
             }
             
-            .title-divider {
-                width: 80%;
-                height: 4px;
-                background: linear-gradient(90deg, transparent 0%, var(--primary) 20%, var(--secondary) 50%, var(--accent) 80%, transparent 100%);
-                margin: 1rem auto 2rem auto;
-                border-radius: 2px;
-                box-shadow: 0 2px 4px rgba(139, 69, 19, 0.2);
-            }
-            
-            /* Enhanced Art Card - TRANSPARENT DESIGN */
             .art-card {
-                background: transparent !important;
-                border-radius: 20px;
-                margin-bottom: 2rem;
-                box-shadow: none !important;
-                border: none !important;
-                backdrop-filter: none !important;
-                transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-                overflow: hidden;
-                position: relative;
-                animation: fadeInUp 0.6s ease-out;
+                margin-bottom: 1.5rem;
             }
             
-            .art-card:hover {
-                transform: translateY(-8px) scale(1.02);
-            }
-            
-            /* Art Card Image Container */
-            .art-card img {
-                border-radius: 16px;
-                box-shadow: 0 6px 20px rgba(139, 69, 19, 0.25);
-                transition: transform 0.4s ease;
-                margin-bottom: 1.2rem;
-                width: 100%;
-                object-fit: cover;
-                height: 220px;
-            }
-            
-            .art-card:hover img {
-                transform: scale(1.05);
-            }
-            
-            /* Enhanced Art Title - NO WHITE BOX */
             .art-title {
-                color: var(--accent) !important;
-                font-size: 1.6rem;
-                font-weight: 700;
-                margin-bottom: 0.5rem;
-                line-height: 1.3;
-                background: linear-gradient(135deg, var(--accent), var(--primary));
-                -webkit-background-clip: text;
-                -webkit-text-fill-color: transparent;
-                background-clip: text;
-                letter-spacing: -0.3px;
-                text-align: center !important;
-                border-bottom: 3px solid var(--primary);
-            }
-            
-            /* Enhanced Artist Name */
-            .art-artist {
-                font-size: 1.1rem;
-                margin-bottom: 1rem;
-                color: var(--secondary) !important;
-                font-style: italic;
-                font-weight: 500;
-                display: flex;
-                align-items: center;
-                gap: 0.5rem;
-                text-align: left !important;
-            }
-            
-            .art-artist::before {
-                content: "🎨";
-                font-size: 1rem;
-            }
-            
-            /* Enhanced Price Display */
-            .art-price {
-                font-weight: 800;
                 font-size: 1.4rem;
-                color: var(--primary) !important;
-                margin: 1rem 0;
-                background: linear-gradient(135deg, rgba(139, 69, 19, 0.1), rgba(160, 82, 45, 0.15));
-                border-radius: 12px;
-                border-left: 4px solid var(--primary);
-                display: inline-block;
-                text-shadow: none;
-                box-shadow: 0 2px 8px rgba(139, 69, 19, 0.1);
-                font-family: 'Inter', monospace;
-                letter-spacing: 0.5px;
-                text-align: left !important;
             }
             
-            /* No Image Placeholder */
-            .no-image-placeholder {
-                width: 100%;
-                height: 220px;
-                background: linear-gradient(135deg, rgba(245, 222, 179, 0.4), rgba(210, 180, 140, 0.3));
-                border-radius: 16px;
-                display: flex;
-                flex-direction: column;
-                align-items: center;
-                justify-content: center;
-                color: var(--secondary);
-                font-style: italic;
-                font-size: 1.1rem;
-                border: 2px dashed var(--secondary);
-                margin-bottom: 1.2rem;
-                transition: all 0.3s ease;
-                text-align: center !important;
+            .art-price {
+                font-size: 1.2rem;
+                padding: 0.6rem 1rem;
             }
             
-            .no-image-placeholder:hover {
-                background: linear-gradient(135deg, rgba(245, 222, 179, 0.5), rgba(210, 180, 140, 0.4));
-                border-color: var(--primary);
-            }
-            
-            /* CORRECTED BUTTONS - Add to Cart OUTSIDE expander */
             .stButton > button {
-                background: linear-gradient(135deg, var(--primary), var(--secondary)) !important;
-                color: white !important;
-                border-radius: 12px !important;
-                border: 2px solid var(--brown-medium) !important;
-                font-weight: 700 !important;
-                font-size: 0.95rem !important;
-                transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
-                width: 100% !important;
-                margin: 0.8rem 0 !important;
-                cursor: pointer !important;
-                box-shadow: 0 4px 12px rgba(139, 69, 19, 0.25) !important;
-                text-transform: uppercase !important;
-                letter-spacing: 0.8px !important;
-                min-height: 48px !important;
-                text-align: center !important;
-                display: block !important;
-                position: relative !important;
-                z-index: 1 !important;
-            }
-            
-            .stButton > button:hover {
-                background: linear-gradient(135deg, var(--accent), var(--primary)) !important;
-                transform: translateY(-3px) scale(1.03) !important;
-                box-shadow: 0 8px 25px rgba(139, 69, 19, 0.35) !important;
-                border-color: var(--brown-light) !important;
-            }
-            
-            .stButton > button:active {
-                transform: translateY(-1px) scale(1.01) !important;
-                box-shadow: 0 4px 15px rgba(139, 69, 19, 0.3) !important;
-            }
-            
-            /* CORRECTED EDIT/DELETE BUTTONS - Proper form styling */
-            .edit-delete-buttons {
-                display: flex;
-                gap: 0.5rem;
-                margin: 1rem 0;
-                align-items: center;
-                justify-content: space-between;
-            }
-            
-            .edit-delete-buttons .stButton {
-                flex: 1;
-            }
-            
-            .edit-delete-buttons .stButton > button {
-                background: linear-gradient(135deg, var(--brown-medium), var(--secondary)) !important;
-                color: white !important;
-                border: 2px solid var(--accent) !important;
-                border-radius: 8px !important;
-                font-weight: 600 !important;
-                font-size: 0.85rem !important;
-                min-height: 40px !important;
-                margin: 0.2rem !important;
-                text-transform: uppercase !important;
-                letter-spacing: 0.5px !important;
-            }
-            
-            .edit-delete-buttons .stButton > button:hover {
-                background: linear-gradient(135deg, var(--accent), var(--brown-dark)) !important;
-                transform: translateY(-2px) scale(1.02) !important;
-                box-shadow: 0 6px 20px rgba(139, 69, 19, 0.4) !important;
-            }
-            
-            /* Enhanced Expander */
-            .streamlit-expanderHeader {
-                background: linear-gradient(135deg, var(--primary), var(--secondary)) !important;
-                color: white !important;
-                font-weight: 600 !important;
-                border-radius: 12px !important;
-                text-transform: uppercase !important;
-                letter-spacing: 0.8px !important;
                 font-size: 0.9rem !important;
-                transition: all 0.3s ease !important;
-                text-align: center !important;
-                margin-top: 1rem !important;
+                min-height: 44px !important;
             }
-            
-            .streamlit-expanderHeader:hover {
-                background: linear-gradient(135deg, var(--accent), var(--primary)) !important;
-                transform: scale(1.02) !important;
+        }
+        
+        /* Animation */
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
             }
-            
-            div[data-testid="stExpander"] {
-                border: 2px solid rgba(139, 69, 19, 0.15) !important;
-                border-radius: 12px !important;
-                overflow: hidden !important;
-                margin: 1rem 0 !important;
-                box-shadow: 0 4px 12px rgba(139, 69, 19, 0.1) !important;
-                background: linear-gradient(135deg, rgba(245, 222, 179, 0.15), rgba(210, 180, 140, 0.1)) !important;
+            to {
+                opacity: 1;
+                transform: translateY(0);
             }
-            
-            /* Expander content should be justified */
-            div[data-testid="stExpander"] div[data-testid="stExpanderDetails"] {
-                text-align: justify !important;
-                text-justify: inter-word !important;
-                line-height: 1.6 !important;
-            }
-            
-            /* Details Section */
-            .details-section {
-                background: linear-gradient(135deg, rgba(245, 222, 179, 0.25), rgba(210, 180, 140, 0.15));
-                border-radius: 12px;
-                border: 1px solid rgba(139, 69, 19, 0.15);
-                margin: 1rem 0;
-                box-shadow: inset 0 2px 4px rgba(139, 69, 19, 0.1);
-            }
-            
-            .detail-item {
-                margin-bottom: 1.2rem;
-                border-bottom: 1px solid rgba(139, 69, 19, 0.15);
-                transition: background-color 0.2s ease;
-            }
-            
-            .detail-item:last-child {
-                border-bottom: none;
-                margin-bottom: 0;
-                padding-bottom: 0;
-            }
-            
-            .detail-item:hover {
-                background-color: rgba(245, 222, 179, 0.1);
-                border-radius: 8px;
-                padding: 0.5rem;
-                margin: 0 -0.5rem 1.2rem -0.5rem;
-            }
-            
-            .detail-label {
-                font-weight: 700;
-                color: var(--accent);
-                font-size: 1rem;
-                margin-bottom: 0.5rem;
-                display: flex;
-                align-items: center;
-                gap: 0.5rem;
-                text-align: left !important;
-            }
-            
-            .detail-value {
-                color: var(--dark);
-                line-height: 1.7;
-                text-align: justify !important;
-                text-justify: inter-word !important;
-                font-size: 0.95rem;
-            }
-            
-            /* Description Special Styling */
-            .description-content {
-                background: linear-gradient(135deg, rgba(255, 255, 255, 0.6), rgba(245, 222, 179, 0.3));
-                border-radius: 10px;
-                border-left: 4px solid var(--primary);
-                text-align: justify !important;
-                text-justify: inter-word !important;
-                line-height: 1.7;
-                margin-top: 0.5rem;
-                box-shadow: 0 2px 8px rgba(139, 69, 19, 0.1);
-                font-size: 0.95rem;
-            }
-            
-            /* FORM IN DROPDOWN STYLING */
-            .form-container {
-                background: linear-gradient(135deg, rgba(245, 222, 179, 0.3), rgba(210, 180, 140, 0.2));
-                border-radius: 12px;
-                border: 1px solid rgba(139, 69, 19, 0.2);
-                margin: 1rem 0;
-            }
-            
-            /* Form Styling */
-            .stTextInput > div > div > input,
-            .stTextArea > div > div > textarea,
-            .stNumberInput > div > div > input,
-            .stSelectbox > div > div > select {
-                border-radius: 12px !important;
-                border: 2px solid rgba(139, 69, 19, 0.2) !important;
-                background: rgba(255, 255, 255, 0.95) !important;
-                transition: all 0.3s ease !important;
-                font-size: 1rem !important;
-                color: var(--dark) !important;
-                text-align: left !important;
-            }
-            
-            .stTextInput > div > div > input:focus,
-            .stTextArea > div > div > textarea:focus,
-            .stNumberInput > div > div > input:focus,
-            .stSelectbox > div > div > select:focus {
-                border-color: var(--primary) !important;
-                box-shadow: 0 0 0 3px rgba(139, 69, 19, 0.15) !important;
-                background: white !important;
-                outline: none !important;
-            }
-            
-            /* File Uploader Styling */
-            .stFileUploader {
-                background: var(--glass-bg) !important;
-                border: 3px dashed var(--secondary) !important;
-                border-radius: 16px !important;
-                text-align: center !important;
-                transition: all 0.3s ease !important;
-            }
-            
-            .stFileUploader:hover {
-                border-color: var(--primary) !important;
-                background: rgba(139, 69, 19, 0.05) !important;
-            }
-            
-            /* Success/Error Messages */
-            .stAlert {
-                border-radius: 12px !important;
-                border: none !important;
-                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1) !important;
-                margin: 1rem 0 !important;
-                text-align: justify !important;
-                text-justify: inter-word !important;
-            }
-            
-            .stSuccess {
-                background: linear-gradient(135deg, rgba(76, 175, 80, 0.1), rgba(129, 199, 132, 0.1)) !important;
-                border-left: 5px solid #4CAF50 !important;
-            }
-            
-            .stError {
-                background: linear-gradient(135deg, rgba(244, 67, 54, 0.1), rgba(239, 154, 154, 0.1)) !important;
-                border-left: 5px solid #F44336 !important;
-            }
-            
-            .stWarning {
-                background: linear-gradient(135deg, rgba(255, 152, 0, 0.1), rgba(255, 204, 128, 0.1)) !important;
-                border-left: 5px solid #FF9800 !important;
-            }
-            
-            /* Brown card for sections */
-            .brown-card {
-                background: var(--glass-bg);
-                border-radius: 20px;
-                box-shadow: var(--shadow);
-                border: 1px solid rgba(139, 69, 19, 0.15);
-                margin-bottom: 2rem;
-                backdrop-filter: blur(15px);
-            }
-            
-            /* Empty State */
-            .empty-state {
-                text-align: center !important;
-                font-style: italic;
-                color: var(--secondary);
-                background: linear-gradient(135deg, rgba(245, 222, 179, 0.5), rgba(210, 180, 140, 0.3));
-                border-radius: 16px;
-                border: 2px dashed var(--secondary);
-                margin: 2rem 0;
-            }
-            
-            .empty-state::before {
-                content: "🎨";
-                display: block;
-                font-size: 3rem;
-                margin-bottom: 1rem;
-                color: var(--secondary);
-            }
-            
-            /* Animation for cards */
-            @keyframes fadeInUp {
-                from {
-                    opacity: 0;
-                    transform: translateY(30px);
-                }
-                to {
-                    opacity: 1;
-                    transform: translateY(0);
-                }
-            }
-            
-            .art-card {
-                animation: fadeInUp 0.6s ease-out;
-            }
-            
-            /* Mobile Responsiveness */
-            @media (max-width: 768px) {
-                .main-title {
-                    font-size: 2.2rem;
-                }
-                
-                .art-card {
-                    padding: 1.2rem 0;
-                    margin-bottom: 1.5rem;
-                }
-                
-                .art-title {
-                    font-size: 1.4rem;
-                }
-                
-                .art-price {
-                    font-size: 1.2rem;
-                    padding: 0.6rem 1rem;
-                }
-                
-                .edit-delete-buttons {
-                    flex-direction: column;
-                    gap: 0.3rem;
-                }
-                
-                .edit-delete-buttons .stButton > button {
-                    font-size: 0.8rem !important;
-                    min-height: 36px !important;
-                }
-            }
+        }
+        
+        .art-card {
+            animation: fadeInUp 0.6s ease-out;
+        }
         </style>
         """, unsafe_allow_html=True)
 
 class ArtworkUploadForm(UIComponent):
-    """Artwork upload form component - NOW IN DROPDOWN"""
+    """COMPLETELY FIXED - Artwork upload form without session state conflicts"""
     
     def render(self, user_context: UserContext) -> None:
-        """Render artwork upload form in dropdown/expander"""
+        """Render artwork upload form with FIXED session state handling"""
         
-        # Form in dropdown as requested
         with st.expander("➕ Upload New Artwork", expanded=False):
             st.markdown('<div class="form-container">', unsafe_allow_html=True)
             
-            # Initialize form counter if not exists
-            if 'upload_form_counter' not in st.session_state:
-                st.session_state.upload_form_counter = 0
+            # FIXED: Use simple, static form key with clear_on_submit
+            form_key = "upload_artwork_form"
             
-            # Use a fixed form key
-            form_key = f"upload_artwork_form_{st.session_state.upload_form_counter}"
-            
-            with st.form(key=form_key, clear_on_submit=True):
+            with st.form(key=form_key, clear_on_submit=True):  # ✅ Auto-clear form
                 col1, col2 = st.columns(2)
                 
                 with col1:
-                    title = st.text_input("Title*", placeholder="e.g., Sunset Landscape")
-                    materials = st.text_input("Materials", placeholder="e.g., Oil on Canvas")
-                    state = st.text_input("State / Condition", placeholder="e.g., Excellent")
+                    title = st.text_input(
+                        "Title*", 
+                        placeholder="e.g., Sunset Landscape",
+                        help="Choose a descriptive title for your artwork"
+                        # ✅ No key parameter to avoid session state conflicts
+                    )
+                    materials = st.text_input(
+                        "Materials", 
+                        placeholder="e.g., Oil on Canvas",
+                        help="Specify the materials and medium used"
+                    )
+                    state = st.text_input(
+                        "State ", 
+                        placeholder="e.g., Excellent",
+                        help="Describe the condition of the artwork"
+                    )
                 
                 with col2:
-                    price = st.number_input("Price (₹)*", min_value=0.0, step=1.0)
-                    style = st.text_input("Art Style / Genre", placeholder="e.g., Abstract")
+                    price = st.number_input(
+                        "Price (₹)*", 
+                        min_value=0.0, 
+                        step=1.0,
+                        help="Set a fair price for your artwork"
+                    )
+                    style = st.text_input(
+                        "Art Style ", 
+                        placeholder="e.g., Abstract",
+                        help="Specify the artistic style or genre"
+                    )
                     image_file = st.file_uploader(
                         "Artwork Image*", 
                         type=self.config.allowed_file_types,
-                        help="Upload a clear image of your artwork"
+                        help="Upload a clear, high-quality image of your artwork"
                     )
                 
                 description = st.text_area(
                     "Description",
-                    height=100,
-                    placeholder="Describe your artwork, inspiration, techniques used..."
+                    height=120,
+                    placeholder="Describe your artwork, inspiration, techniques used, story behind it...",
+                    help="Provide detailed information to help buyers understand your artwork"
                 )
                 
+                # ✅ Simple submit button
                 submitted = st.form_submit_button("🎨 Upload Artwork", use_container_width=True)
                 
+                # ✅ Handle submission immediately in the form block
                 if submitted:
-                    success = self._handle_upload_submission(
-                        user_context, title, price, image_file, description,
-                        materials, state, style
-                    )
-                    if success:
-                        # Increment counter to force form refresh
-                        st.session_state.upload_form_counter += 1
-                        st.rerun()
+                    # ✅ Comprehensive validation first
+                    validation_errors = self._validate_form_data(title, price, image_file)
+                    
+                    if validation_errors:
+                        for error in validation_errors:
+                            st.error(f"❌ {error}")
+                    else:
+                        # ✅ Process submission with detailed logging
+                        success = self._process_artwork_submission(
+                            user_context, title, price, image_file, description,
+                            materials, state, style
+                        )
+                        
+                        if success:
+                            st.success("✅ Artwork uploaded successfully!")
+                            st.balloons()
+                            # ✅ Form will clear automatically due to clear_on_submit=True
+                            st.rerun()
             
             st.markdown('</div>', unsafe_allow_html=True)
     
-    def _handle_upload_submission(
+    def _validate_form_data(self, title: str, price: float, image_file: Any) -> list:
+        """Comprehensive form validation"""
+        errors = []
+        
+        if not title or len(title.strip()) < 3:
+            errors.append("Title must be at least 3 characters long")
+        
+        if not image_file:
+            errors.append("Image is required")
+        
+        if price <= 0:
+            errors.append("Price must be greater than 0")
+        
+        return errors
+    
+    def _process_artwork_submission(
         self, user_context: UserContext, title: str, price: float,
         image_file: Any, description: str, materials: str, state: str, style: str
     ) -> bool:
-        """Handle artwork upload submission with better error handling"""
-        
-        # Enhanced validation
-        validation_errors = []
-        
-        if not title or len(title.strip()) < 3:
-            validation_errors.append("Title must be at least 3 characters long")
-        
-        if not image_file:
-            validation_errors.append("Image is required")
-        
-        if price <= 0:
-            validation_errors.append("Price must be greater than 0")
-        
-        # Display validation errors
-        if validation_errors:
-            for error in validation_errors:
-                st.error(f"❌ {error}")
-            return False
+        """Process artwork submission with enhanced error handling"""
         
         try:
-            with st.spinner("🔄 Uploading artwork..."):
-                # Save uploaded file
+            logger.info(f"Starting artwork upload for user: {user_context.username}")
+            logger.info(f"Artwork data: title={title}, price={price}")
+            
+            # Save uploaded file first
+            image_path = None
+            if image_file:
+                logger.info(f"Saving image file: {image_file.name}")
                 image_path = self.file_manager.save_uploaded_file(image_file, user_context.username)
                 if not image_path:
+                    logger.error("Failed to save image file")
                     st.error("❌ Failed to save image file")
                     return False
+                logger.info(f"Image saved successfully: {image_path}")
+            
+            # Create artwork data
+            artwork = ArtworkData(
+                title=title.strip(),
+                artist=user_context.username,
+                description=description.strip(),
+                materials=materials.strip(),
+                state=state.strip(),
+                style=style.strip(),
+                price=price,
+                image_path=image_path
+            )
+            
+            # Test database connection first
+            logger.info("Testing database connection...")
+            if not self.db_manager._operations:
+                logger.error("Database operations not available")
+                st.error("❌ Database not available. Please check your connection.")
+                return False
+            
+            # Save to database with detailed logging
+            logger.info(f"Attempting to save artwork: {artwork.to_dict()}")
+            success = self.db_manager.create_artwork(artwork)
+            
+            if success:
+                logger.info("Artwork saved successfully to database")
+                return True
+            else:
+                logger.error("Failed to save artwork to database")
+                st.error("❌ Failed to save artwork to database")
+                return False
                 
-                # Create artwork data
-                artwork = ArtworkData(
-                    title=title.strip(),
-                    artist=user_context.username,
-                    description=description.strip(),
-                    materials=materials.strip(),
-                    state=state.strip(),
-                    style=style.strip(),
-                    price=price,
-                    image_path=image_path
-                )
-                
-                # Save to database
-                success = self.db_manager.create_artwork(artwork)
-                if success:
-                    st.success("✅ Artwork uploaded successfully!")
-                    st.balloons()
-                    return True
-                else:
-                    st.error("❌ Failed to save artwork to database.")
-                    return False
-                    
         except Exception as e:
-            logger.error(f"Error uploading artwork: {e}")
-            st.error(f"❌ Failed to upload artwork: {str(e)}")
+            logger.error(f"Exception in artwork submission: {e}")
+            import traceback
+            logger.error(f"Full traceback: {traceback.format_exc()}")
+            st.error(f"❌ Upload failed: {str(e)}")
             return False
 
 class ArtworkCard:
-    """Individual artwork card with corrected Edit/Delete buttons and Add to Cart outside"""
+    """Individual artwork card component - CORRECTED WITH BUTTON BELOW VIEW DETAILS"""
     
     def __init__(self, config: UIConfiguration, db_manager: DatabaseManager, file_manager: FileManager):
         self.config = config
@@ -970,7 +992,7 @@ class ArtworkCard:
         self.file_manager = file_manager
     
     def render_card(self, artwork: ArtworkData, user_context: UserContext, is_artist_view: bool = False) -> None:
-        """Render individual artwork card with corrected button positioning"""
+        """Render individual artwork card with Add to Cart button BELOW View Details"""
         # Title and artist
         st.markdown(f'<div class="art-title">{artwork.title}</div>', unsafe_allow_html=True)
         st.markdown(f'<div class="art-artist">🎨 {artwork.artist}</div>', unsafe_allow_html=True)
@@ -981,15 +1003,7 @@ class ArtworkCard:
         # Price display
         st.markdown(f'<div class="art-price">₹{artwork.price:.1f}</div>', unsafe_allow_html=True)
         
-        # Add to Cart button OUTSIDE the expander - for customers only
-        if not is_artist_view and user_context.role == UserRole.CUSTOMER:
-            if st.button("🛒 Add to Cart", key=f"addtocart_{artwork.artwork_id}_{user_context.username}"):
-                if self.db_manager.add_artwork_to_cart(user_context.username, artwork):
-                    st.success(f"✅ Added '{artwork.title}' to cart!")
-                else:
-                    st.error("❌ Failed to add to cart")
-        
-        # View Details dropdown - details only for customers, controls for artists
+        # View Details dropdown FIRST
         with st.expander("📋 View Details", expanded=False):
             st.markdown('<div class="details-section">', unsafe_allow_html=True)
             
@@ -1030,19 +1044,28 @@ class ArtworkCard:
             st.markdown(f'<div class="detail-value">{artwork.upload_date}</div>', unsafe_allow_html=True)
             st.markdown('</div>', unsafe_allow_html=True)
             
-            # CORRECTED Artist controls (only for artist view)
+            # Artist controls (only for artist view)
             if is_artist_view and artwork.artist == user_context.username:
                 st.markdown('<div class="detail-item">', unsafe_allow_html=True)
                 st.markdown('<div class="detail-label">⚙️ Actions</div>', unsafe_allow_html=True)
-                st.markdown('<div class="edit-delete-buttons">', unsafe_allow_html=True)
                 self._render_artist_controls(artwork, user_context)
-                st.markdown('</div>', unsafe_allow_html=True)
                 st.markdown('</div>', unsafe_allow_html=True)
             
             st.markdown('</div>', unsafe_allow_html=True)
+        
+        # MOVED: Add to Cart button BELOW the expander (for customers only)
+        if not is_artist_view and user_context.role == UserRole.CUSTOMER:
+            if st.button("🛒 Add to Cart", key=f"addtocart_{artwork.artwork_id}_{user_context.username}"):
+                if self.db_manager.add_artwork_to_cart(user_context.username, artwork):
+                    # Show toast notification
+                    st.toast(f"✅ '{artwork.title}' added to cart!", icon="🛒")
+                    # Switch to cart page
+                    st.switch_page("pages/10_Cart.py")
+                else:
+                    st.error("❌ Failed to add to cart")
     
     def _render_artwork_image(self, artwork: ArtworkData) -> None:
-        """Render artwork image"""
+        """Render artwork image with proper fallback"""
         if artwork.image_path and self.file_manager.file_exists(artwork.image_path):
             st.image(artwork.image_path, use_container_width=True)
         else:
@@ -1171,7 +1194,7 @@ class ArtworkCard:
             st.error("❌ Failed to update artwork. Please try again.")
 
 class ArtworkGallery(UIComponent):
-    """Main artwork gallery component"""
+    """Main artwork gallery component - CORRECTED VERSION"""
     
     def render(self, user_context: UserContext) -> None:
         """Render artwork gallery based on user role"""
@@ -1181,7 +1204,7 @@ class ArtworkGallery(UIComponent):
             self._render_customer_view(user_context)
     
     def _render_artist_view(self, user_context: UserContext) -> None:
-        """Render artist's artworks with corrected edit/delete functionality"""
+        """Render artist's artworks with corrected functionality"""
         st.markdown('<h2 class="gallery-header">Your Artworks</h2>', unsafe_allow_html=True)
         
         try:
@@ -1218,10 +1241,8 @@ class ArtworkGallery(UIComponent):
                 st.markdown("🎨 Check back soon for amazing artworks from talented artists!")
                 st.markdown('</div>', unsafe_allow_html=True)
                 return
-                
-            st.markdown('<div class="brown-card" style="text-align: center;">', unsafe_allow_html=True)
-            st.markdown(f"**🛍️ Discover {len(artworks)} amazing artworks from talented artists**")
-            st.markdown('</div>', unsafe_allow_html=True)
+            
+            # No message displayed - clean display of artworks
             
             self._render_artwork_grid(artworks, user_context, is_artist_view=False)
             
@@ -1243,9 +1264,9 @@ class ArtworkGallery(UIComponent):
                     st.markdown('</div>', unsafe_allow_html=True)
                     st.markdown('<div class="title-divider"></div>', unsafe_allow_html=True)
 
-# --------------------------------------------------------------------------- #
-#  Main Application with Advanced Architecture                                #
-# --------------------------------------------------------------------------- #
+# ─────────────────────────────────────────────────────────────────────────────
+#  MAIN APPLICATION
+# ─────────────────────────────────────────────────────────────────────────────
 class ArtworkApplication:
     """Main artwork application with corrected components"""
     
@@ -1288,9 +1309,6 @@ class ArtworkApplication:
             logger.error(f"Application error: {e}")
             st.error(f"❌ Application error: {e}")
 
-# --------------------------------------------------------------------------- #
-#  Application Entry Point                                                    #
-# --------------------------------------------------------------------------- #
 def main():
     """Application main function"""
     st.set_page_config(

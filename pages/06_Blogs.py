@@ -278,10 +278,10 @@ class UIComponent(ABC):
         pass
 
 class StyleManager(UIComponent):
-    """Handles CSS styling with form-in-dropdown support"""
+    """Handles CSS styling with form-in-dropdown support - CORRECTED UI"""
     
     def render(self, user_context: UserContext) -> None:
-        """Apply comprehensive brown CSS styling with dropdown form support"""
+        """Apply comprehensive brown CSS styling - CORRECTED HTML ENTITIES"""
         st.markdown("""
         <style>
         :root {
@@ -349,7 +349,7 @@ class StyleManager(UIComponent):
             background: linear-gradient(135deg, rgba(245, 222, 179, 0.3), rgba(210, 180, 140, 0.2));
             border: 2px solid var(--brown-light);
             border-radius: 16px;
-            margin: 1rem 0;
+            margin: 2rem 0;
             box-shadow: 0 4px 12px rgba(139, 69, 19, 0.15);
             transition: transform 0.3s ease, box-shadow 0.3s ease;
         }
@@ -359,12 +359,12 @@ class StyleManager(UIComponent):
             box-shadow: 0 8px 25px rgba(139, 69, 19, 0.25);
         }
         
-        /* Blog Title - NO WHITE BOX */
+        /* Blog Title - Enhanced */
         .blog-title {
             color: var(--secondary);
-            font-size: 1.8rem;
+            font-size: 2rem;
             font-weight: 700;
-            margin-bottom: 0.8rem;
+            margin-bottom: 1rem;
             border-bottom: 3px solid var(--primary);
             background: linear-gradient(135deg, var(--accent), var(--primary));
             -webkit-background-clip: text;
@@ -376,8 +376,8 @@ class StyleManager(UIComponent):
         /* Blog Meta Information */
         .blog-meta {
             color: var(--secondary);
-            font-size: 0.9rem;
-            margin-bottom: 1.2rem;
+            font-size: 0.95rem;
+            margin-bottom: 1.5rem;
             display: flex;
             flex-wrap: wrap;
             gap: 1.5rem;
@@ -390,19 +390,22 @@ class StyleManager(UIComponent):
             display: flex;
             align-items: center;
             gap: 0.3rem;
+            background: rgba(139, 69, 19, 0.1);
+            border-radius: 15px;
+            border: 1px solid rgba(139, 69, 19, 0.2);
         }
         
-        /* Blog Content */
+        /* Blog Content - CLEAN NO BOX STYLING */
         .blog-content {
             color: var(--dark);
-            line-height: 1.7;
+            line-height: 1.8;
             margin: 1.5rem 0;
-            font-size: 1rem;
+            font-size: 1.1rem;
             text-align: justify;
-            background: linear-gradient(135deg, rgba(245, 222, 179, 0.3), rgba(210, 180, 140, 0.2));
-            border-radius: 8px;
-            border-left: 4px solid var(--primary);
-            border: 1px solid rgba(139, 69, 19, 0.1);
+            background: transparent !important;
+            border: none !important;
+            border-radius: 0 !important;
+            border-left: none !important;
         }
         
         /* Blog Image Styling */
@@ -410,7 +413,7 @@ class StyleManager(UIComponent):
             border-radius: 12px;
             box-shadow: 0 6px 20px rgba(139, 69, 19, 0.25);
             transition: transform 0.4s ease;
-            margin-bottom: 1.2rem;
+            margin-bottom: 1.5rem;
             width: 100%;
             object-fit: cover;
             border: 2px solid var(--brown-light);
@@ -439,7 +442,7 @@ class StyleManager(UIComponent):
         
         .stButton > button:hover {
             background: linear-gradient(135deg, var(--accent), var(--brown-dark)) !important;
-            transform: translateY(-4px) scale(1.08) !important;
+            transform: translateY(-4px) scale(1.05) !important;
             box-shadow: 
                 0 10px 30px rgba(139, 69, 19, 0.45),
                 inset 0 2px 0 rgba(245, 222, 179, 0.4) !important;
@@ -570,38 +573,25 @@ class StyleManager(UIComponent):
         .stSpinner > div {
             border-color: var(--primary) transparent var(--primary) transparent !important;
         }
-        
-        /* Empty State */
         .empty-state {
-            text-align: center;
-            font-style: italic;
-            color: var(--secondary);
-            background: linear-gradient(135deg, rgba(245, 222, 179, 0.5), rgba(210, 180, 140, 0.3));
+            text-align: center; 
+            background: linear-gradient(135deg, rgba(245, 222, 179, 0.2), rgba(210, 180, 140, 0.1));
             border-radius: 16px;
-            border: 2px dashed var(--secondary);
+            border: 2px dashed var(--brown-light);
             margin: 2rem 0;
         }
         
         .empty-state::before {
             content: "📝";
             display: block;
-            font-size: 3rem;
+            font-size: 4rem;
             margin-bottom: 1rem;
             color: var(--brown-medium);
         }
-        
-        /* Custom brown elements */
-        .brown-divider {
-            height: 2px;
-            background: linear-gradient(90deg, transparent, var(--primary), var(--secondary), var(--primary), transparent);
-            margin: 2rem 0;
-            border-radius: 1px;
-        }
-        
         .brown-card {
             background: linear-gradient(135deg, rgba(245, 222, 179, 0.3), rgba(210, 180, 140, 0.2));
             border: 2px solid var(--brown-light);
-            border-radius: 12px;
+            border-radius: 16px;
             margin: 1rem 0;
             box-shadow: 0 4px 12px rgba(139, 69, 19, 0.15);
         }
@@ -622,6 +612,7 @@ class StyleManager(UIComponent):
         h2 {
             color: var(--primary) !important;
             border-bottom: 2px solid var(--brown-light) !important;
+            padding-bottom: 0.5rem !important;
         }
         
         /* Writing Tips Section */
@@ -630,6 +621,7 @@ class StyleManager(UIComponent):
             border-radius: 12px;
             border-left: 4px solid var(--primary);
             margin-top: 1rem;
+            border: 1px solid rgba(139, 69, 19, 0.2);
         }
         
         .writing-tips h4 {
@@ -639,17 +631,23 @@ class StyleManager(UIComponent):
         
         .writing-tips ul {
             margin: 0;
+            padding-left: 1.5rem;
         }
         
         .writing-tips li {
             color: var(--brown-darker);
             margin-bottom: 0.5rem;
-            line-height: 1.5;
+            line-height: 1.6;
         }
         
         /* Responsive Design */
         @media (max-width: 768px) {
             .form-container {
+                margin: 1rem 0;
+            }
+            
+            .blog-container {
+                margin: 1rem 0;
             }
             
             .blog-title {
@@ -662,34 +660,14 @@ class StyleManager(UIComponent):
                 gap: 0.5rem;
             }
             
-            .blog-container {
-                margin-bottom: 1.5rem;
-                border-radius: 12px;
-            }
-            
             .stButton > button {
                 font-size: 0.9rem !important;
+                padding: 0.6rem 1.2rem !important;
             }
             
             .streamlit-expanderHeader {
                 font-size: 0.9rem !important;
             }
-        }
-        
-        /* Animation for loading states */
-        @keyframes fadeInUp {
-            from {
-                opacity: 0;
-                transform: translateY(20px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-        
-        .blog-container, .form-container {
-            animation: fadeInUp 0.4s ease-out;
         }
         
         /* Scrollbar Styling - ALL BROWN */
@@ -715,7 +693,7 @@ class StyleManager(UIComponent):
         """, unsafe_allow_html=True)
 
 class BlogUploadForm(UIComponent):
-    """Blog upload form component - NOW IN DROPDOWN"""
+    """Blog upload form component - CORRECTED"""
     
     def render(self, user_context: UserContext) -> None:
         """Render blog upload form in dropdown/expander"""
@@ -841,7 +819,7 @@ class BlogUploadForm(UIComponent):
             return False
 
 class BlogDisplay(UIComponent):
-    """Blog display component with brown theme"""
+    """Blog display component with brown theme - CORRECTED"""
     
     def render(self, user_context: UserContext) -> None:
         """Render blog display with brown styling"""
@@ -1053,7 +1031,7 @@ class BlogApplication:
             SessionManager.initialize_blog_states()
             
             # App header with brown theme
-            st.markdown('<div class="brown-card" style="text-align: center; padding: 2rem; margin-bottom: 2rem;">', unsafe_allow_html=True)
+            # st.markdown('<div class="brown-card" style="text-align: center; padding: 2rem; margin-bottom: 2rem;">', unsafe_allow_html=True)
             st.markdown('<h1 style="color: var(--accent);">🎨 Brush and Soul Blogs</h1>', unsafe_allow_html=True)
             st.markdown('<p style="color: var(--secondary); font-size: 1.1rem; font-weight: 600;">Where Artists Share Their Creative Journey</p>', unsafe_allow_html=True)
             st.markdown('</div>', unsafe_allow_html=True)

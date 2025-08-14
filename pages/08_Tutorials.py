@@ -208,7 +208,6 @@ class AdvancedTutorialInterface:
             border: none !important;
             backdrop-filter: none !important;
             transition: transform 0.2s ease;
-            padding: 1rem 0;
         }
         
         .tutorial-container:hover {
@@ -304,7 +303,6 @@ class AdvancedTutorialInterface:
         /* Empty State */
         .empty-state {
             text-align: center;
-            padding: 3rem 2rem;
             font-style: italic;
             color: var(--secondary);
             background: linear-gradient(135deg, rgba(245, 222, 179, 0.5), rgba(210, 180, 140, 0.3));
@@ -325,7 +323,6 @@ class AdvancedTutorialInterface:
         .role-badge {
             display: inline-flex;
             align-items: center;
-            padding: 0.5rem 1rem;
             border-radius: 20px;
             font-size: 0.85rem;
             font-weight: 600;
@@ -467,7 +464,6 @@ class AdvancedTutorialInterface:
         /* Status Messages - BROWN THEMED */
         .status-message {
             border-radius: 12px;
-            padding: 1rem 1.5rem;
             margin: 1rem 0;
             font-weight: 600;
             display: flex;
@@ -509,7 +505,6 @@ class AdvancedTutorialInterface:
             display: flex;
             justify-content: center;
             margin: 1.5rem 0;
-            padding: 1rem;
             background: linear-gradient(135deg, rgba(245, 222, 179, 0.2), rgba(210, 180, 140, 0.1));
             border-radius: 12px;
             border: 1px solid var(--brown-light);
@@ -526,7 +521,7 @@ class AdvancedTutorialInterface:
             border: 2px solid !important;
             box-shadow: 0 4px 12px rgba(139, 69, 19, 0.15) !important;
             margin: 1rem 0 !important;
-            padding: 1rem 1.5rem !important;
+                    
         }
         
         .stSuccess {

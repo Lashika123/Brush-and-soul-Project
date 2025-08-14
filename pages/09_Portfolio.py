@@ -32,6 +32,8 @@ class PortfolioOpsProtocol(Protocol):
     def save_blog_entry(self, blog: Dict[str, Any]) -> Optional[int]: ...
     def update_blog(self, blog_id: int, data: Dict[str, Any]) -> bool: ...
     def delete_blog(self, blog_id: int) -> bool: ...
+    def get_available_artists(self) -> List[str]: ...
+    def add_to_cart(self, username: str, item: Dict[str, Any]) -> bool: ...
 
 class FileOpsProtocol(Protocol):
     """Shared file-utility operations (uploads, deletes, …)."""
@@ -49,11 +51,11 @@ class UserRole(Enum):
             return cls.CUSTOMER
 
 # ─────────────────────────────────────────────────────────────────────────────
-#  CONFIG & DATA MODELS
+#  CONFIG & DATA MODELS - FIXED
 # ─────────────────────────────────────────────────────────────────────────────
 @dataclass(frozen=True)
 class UIConfig:
-    page_title: str = "Artist Portfolio"
+    page_title: str = "🎨 Artist Portfolio"
     page_icon: str = "🎨"
     uploads_dir: str = "uploads"
     allowed_image_types: List[str] = field(default_factory=lambda: ["png", "jpg", "jpeg"])
@@ -77,7 +79,7 @@ class UserCtx:
 
 @dataclass
 class Portfolio:
-    """Strongly-typed representation of a portfolio."""
+    """Strongly-typed representation of a portfolio - FIXED initialization"""
     username: str
     bio: str = ""
     website: str = ""
@@ -85,11 +87,22 @@ class Portfolio:
 
     @classmethod
     def from_dict(cls, d: Dict[str, Any]) -> "Portfolio":
+        """Create Portfolio from dictionary with safe defaults"""
         return cls(
             username=d.get('username', ''),
             bio=d.get('bio', ''),
             website=d.get('website', ''),
             last_updated=d.get('last_updated', '')
+        )
+
+    @classmethod
+    def create_empty(cls, username: str) -> "Portfolio":
+        """Create empty portfolio for user - FIXED"""
+        return cls(
+            username=username,
+            bio="",
+            website="",
+            last_updated=""
         )
 
     def to_dict(self) -> Dict[str, Any]:
@@ -175,10 +188,10 @@ class Blog:
         }
 
 # ─────────────────────────────────────────────────────────────────────────────
-#  FIXED FILE MANAGER
+#  FILE MANAGER
 # ─────────────────────────────────────────────────────────────────────────────
 class FileManager:
-    """Fixed file operations manager with proper error handling"""
+    """File operations manager with proper error handling"""
     
     def __init__(self, cfg: UIConfig):
         self.cfg = cfg
@@ -222,10 +235,10 @@ class FileManager:
         return str(abs_path) if abs_path.exists() else None
 
 # ─────────────────────────────────────────────────────────────────────────────
-#  FIXED DATABASE MANAGER
+#  DATABASE MANAGER - FIXED
 # ─────────────────────────────────────────────────────────────────────────────
 class DatabaseManager:
-    """Fixed database operations manager with proper error handling"""
+    """Database operations manager with proper error handling - FIXED"""
     
     def __init__(self):
         self.operations_available = True
@@ -242,6 +255,8 @@ class DatabaseManager:
                 save_blog_entry,
                 update_blog,
                 delete_blog,
+                get_artists_with_content,
+                add_to_cart
             )
             
             self.get_portfolio = get_portfolio
@@ -255,6 +270,8 @@ class DatabaseManager:
             self.save_blog_entry = save_blog_entry
             self.update_blog = update_blog
             self.delete_blog = delete_blog
+            self.get_artists_with_content = get_artists_with_content
+            self.add_to_cart = add_to_cart
             
             logger.info("Database operations initialized successfully")
             
@@ -263,12 +280,12 @@ class DatabaseManager:
             self.operations_available = False
             st.error(f"Database operations not available: {e}")
 
-    # Portfolio operations ---------------------------------------------------
+    # FIXED Portfolio operations
     def get_portfolio_data(self, username: str) -> Portfolio:
-        """Get portfolio data for user with proper error handling"""
+        """Get portfolio data for user with proper error handling - FIXED"""
         if not self.operations_available:
             st.error("Database operations not available")
-            return Portfolio(username=username)
+            return Portfolio.create_empty(username)
         
         try:
             portfolio_data = self.get_portfolio(username)
@@ -277,11 +294,11 @@ class DatabaseManager:
                 return Portfolio.from_dict(portfolio_data)
             else:
                 logger.info(f"No portfolio found for user: {username}, creating default")
-                return Portfolio(username=username)
+                return Portfolio.create_empty(username)
         except Exception as e:
             logger.error(f"Error fetching portfolio for {username}: {e}")
             st.error(f"Error loading portfolio: {e}")
-            return Portfolio(username=username)
+            return Portfolio.create_empty(username)
 
     def save_portfolio_data(self, portfolio: Portfolio) -> bool:
         """Save or update portfolio data with proper error handling"""
@@ -455,6 +472,34 @@ class DatabaseManager:
             st.error(f"Error deleting blog: {e}")
             return False
 
+    # ENHANCED: Artist selection for customers
+    def get_available_artists(self) -> List[str]:
+        """Get list of artists who have portfolios or artworks - ENHANCED"""
+        if not self.operations_available:
+            return []
+        
+        try:
+            artists = self.get_artists_with_content()
+            logger.info(f"Available artists for customer viewing: {artists}")
+            return artists
+        except Exception as e:
+            logger.error(f"Error fetching available artists: {e}")
+            return []
+
+    # NEW: Cart functionality for customers
+    def add_artwork_to_cart(self, username: str, artwork: Artwork) -> bool:
+        """Add artwork to customer's cart"""
+        if not self.operations_available:
+            return False
+        
+        try:
+            artwork_dict = artwork.to_dict()
+            return self.add_to_cart(username, artwork_dict)
+        except Exception as e:
+            logger.error(f"Error adding to cart: {e}")
+            st.error(f"Error adding to cart: {e}")
+            return False
+
 # ─────────────────────────────────────────────────────────────────────────────
 #  SESSION MANAGER
 # ─────────────────────────────────────────────────────────────────────────────
@@ -488,75 +533,68 @@ class UIComponent(ABC):
         pass
 
 class StyleManager(UIComponent):
-    """Handles comprehensive brown CSS styling with reduced padding"""
+    """Handles comprehensive brown CSS styling - FIXED HTML entities and enhanced design"""
     
     def render(self, user_ctx: UserCtx, selected_artist: str = "", is_owner: bool = False) -> None:
-        """Apply comprehensive brown CSS styling with minimal padding"""
+        """Apply comprehensive brown CSS styling with all fixes"""
         st.markdown("""
         <style>
         :root {
-            --primary: #8B4513;        /* Earthy Brown */
-            --secondary: #A0522D;      /* Rust */
-            --accent: #5C4033;         /* Dark Brown */
-            --light: #F8F4E8;          /* Cream */
-            --dark: #343434;           /* Dark Gray */
-            --glass-bg: rgba(255, 255, 255, 0.95);
-            --shadow: 0 4px 16px rgba(139, 69, 19, 0.1);
-            --shadow-hover: 0 6px 20px rgba(139, 69, 19, 0.15);
+            --primary: #8B4513;
+            --secondary: #A0522D;
+            --accent: #5C4033;
+            --light: #F8F4E8;
+            --dark: #343434;
+            --brown-light: #D2B48C;
+            --brown-medium: #CD853F;
+            --brown-dark: #8B4513;
+            --brown-darker: #5C4033;
+            --brown-lightest: #F5DEB3;
         }
         
-        /* Global App Styling with reduced spacing */
         .stApp {
             background: linear-gradient(160deg, #f5f1e8 0%, #e8e0d0 100%);
-            font-family: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            min-height: 100vh;
-            padding-top: 0 !important;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: var(--dark);
         }
         
-        /* Remove default Streamlit padding */
-        .main .block-container {
-            padding-top: 1rem !important;
-            padding-bottom: 1rem !important;
-            padding-left: 2rem !important;
-            padding-right: 2rem !important;
-            max-width: none !important;
-        }
-        
-        /* Fix text color issues */
-        .stApp, .stApp *, h1, h2, h3, h4, h5, h6, p, span, div {
-            color: var(--dark) !important;
-        }
-        
-        /* Title Styling - Reduced spacing */
+        /* Main Title with Gradient */
         .main-title, .portfolio-title {
             color: var(--accent) !important;
-            font-size: 2.5rem;
+            font-size: 2.8rem;
             font-weight: 800;
             text-align: center !important;
-            margin: 0.5rem 0 !important;
+            margin-bottom: 0.5rem;
             background: linear-gradient(135deg, var(--accent), var(--primary));
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
             letter-spacing: -0.5px;
-            border-bottom: 3px solid var(--primary);
-            padding-bottom: 0.3rem;
         }
         
         .title-divider {
             width: 80%;
-            height: 3px;
+            height: 4px;
             background: linear-gradient(90deg, transparent 0%, var(--primary) 20%, var(--secondary) 50%, var(--accent) 80%, transparent 100%);
-            margin: 1rem auto !important;
+            margin: 1rem auto 2rem auto;
             border-radius: 2px;
             box-shadow: 0 2px 4px rgba(139, 69, 19, 0.2);
         }
         
-        /* Portfolio Section - Minimal padding */
+        /* Customer artist selector styling */
+        .artist-selector {
+            background: linear-gradient(135deg, rgba(245, 222, 179, 0.3), rgba(210, 180, 140, 0.2));
+            border-radius: 12px;
+            border: 2px solid rgba(139, 69, 19, 0.15);
+            margin-bottom: 2rem;
+            box-shadow: 0 4px 12px rgba(139, 69, 19, 0.15);
+            padding: 1.5rem;
+        }
+        
+        /* Portfolio Section Styling */
         .portfolio-section {
             background: transparent !important;
             margin-bottom: 1.5rem !important;
-            padding: 0.5rem 0 !important;
             transition: all 0.3s ease;
         }
         
@@ -564,53 +602,63 @@ class StyleManager(UIComponent):
             transform: translateY(-2px);
         }
         
-        /* Portfolio Info Display - Reduced padding */
+        /* Portfolio Info Display */
         .portfolio-info {
             background: linear-gradient(135deg, rgba(245, 222, 179, 0.3), rgba(210, 180, 140, 0.2));
             border: 2px solid rgba(139, 69, 19, 0.15);
             border-radius: 12px;
-            padding: 1.5rem !important;
             margin-bottom: 1.5rem !important;
             box-shadow: 0 4px 12px rgba(139, 69, 19, 0.15);
         }
         
-        /* Artwork/Blog Cards - Minimal padding */
+        /* Brown Cards */
+        .brown-card {
+            background: linear-gradient(135deg, rgba(245, 222, 179, 0.3), rgba(210, 180, 140, 0.2));
+            border: 2px solid var(--brown-light);
+            border-radius: 12px;
+            margin: 1rem 0;
+            box-shadow: 0 4px 12px rgba(139, 69, 19, 0.15);
+        }
+        
+        /* Enhanced Art/Blog Cards - TRANSPARENT DESIGN */
         .artwork-card, .blog-card {
             background: transparent !important;
-            border-radius: 16px;
-            margin-bottom: 1.5rem !important;
-            padding: 0.5rem 0 !important;
-            transition: all 0.3s ease;
-            animation: fadeInUp 0.4s ease-out;
+            border-radius: 20px;
+            margin-bottom: 2rem;
+            box-shadow: none !important;
+            border: none !important;
+            backdrop-filter: none !important;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            overflow: hidden;
+            position: relative;
+            animation: fadeInUp 0.6s ease-out;
         }
         
         .artwork-card:hover, .blog-card:hover {
-            transform: translateY(-5px) scale(1.01);
+            transform: translateY(-8px) scale(1.02);
         }
         
-        /* Image Container - Reduced margins */
-        .artwork-image, .blog-image {
-            border-radius: 12px;
-            box-shadow: 0 4px 15px rgba(139, 69, 19, 0.25);
-            transition: transform 0.3s ease;
-            margin-bottom: 0.8rem !important;
+        /* Image Container - Enhanced */
+        .artwork-card img, .blog-card img {
+            border-radius: 16px;
+            box-shadow: 0 6px 20px rgba(139, 69, 19, 0.25);
+            transition: transform 0.4s ease;
+            margin-bottom: 1.2rem;
             width: 100%;
             object-fit: cover;
-            height: 200px;
-            border: 2px solid rgba(139, 69, 19, 0.15);
+            height: 220px;
         }
         
-        .artwork-card:hover .artwork-image, 
-        .blog-card:hover .blog-image {
-            transform: scale(1.03);
+        .artwork-card:hover img, .blog-card:hover img {
+            transform: scale(1.05);
         }
         
-        /* Art/Blog Titles - Reduced margins */
+        /* Art/Blog Titles - NO WHITE BOX */
         .art-title, .blog-title-display {
             color: var(--accent) !important;
-            font-size: 1.4rem;
+            font-size: 1.6rem;
             font-weight: 700;
-            margin: 0.3rem 0 !important;
+            margin-bottom: 0.5rem;
             line-height: 1.3;
             background: linear-gradient(135deg, var(--accent), var(--primary));
             -webkit-background-clip: text;
@@ -618,41 +666,42 @@ class StyleManager(UIComponent):
             background-clip: text;
             letter-spacing: -0.3px;
             text-align: center !important;
-            border-bottom: 2px solid var(--primary);
-            padding-bottom: 0.3rem;
+            border-bottom: 3px solid var(--primary);
+            padding-bottom: 0.5rem;
         }
         
-        /* Price Display - Reduced padding */
+        /* Enhanced Price Display */
         .art-price {
             font-weight: 800;
-            font-size: 1.2rem;
+            font-size: 1.4rem;
             color: var(--primary) !important;
-            margin: 0.8rem 0 !important;
+            margin: 1rem 0;
             background: linear-gradient(135deg, rgba(139, 69, 19, 0.1), rgba(160, 82, 45, 0.15));
-            padding: 0.6rem 1rem !important;
-            border-radius: 10px;
+            border-radius: 12px;
             border-left: 4px solid var(--primary);
             display: inline-block;
+            text-shadow: none;
             box-shadow: 0 2px 8px rgba(139, 69, 19, 0.1);
             font-family: 'Inter', monospace;
             letter-spacing: 0.5px;
+            text-align: left !important;
         }
         
-        /* No Image Placeholder - Reduced height */
+        /* No Image Placeholder - CORRECTED */
         .no-image-placeholder {
             width: 100%;
-            height: 200px;
+            height: 220px;
             background: linear-gradient(135deg, rgba(245, 222, 179, 0.4), rgba(210, 180, 140, 0.3));
-            border-radius: 12px;
+            border-radius: 16px;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
             color: var(--secondary);
             font-style: italic;
-            font-size: 1rem;
+            font-size: 1.1rem;
             border: 2px dashed var(--secondary);
-            margin-bottom: 0.8rem !important;
+            margin-bottom: 1.2rem;
             transition: all 0.3s ease;
             text-align: center !important;
         }
@@ -662,36 +711,62 @@ class StyleManager(UIComponent):
             border-color: var(--primary);
         }
         
-        /* FORM CONTAINER - Reduced padding */
-        .form-container {
-            background: linear-gradient(135deg, rgba(245, 222, 179, 0.3), rgba(210, 180, 140, 0.2));
-            padding: 1.5rem !important;
-            border-radius: 12px;
-            border: 2px solid rgba(139, 69, 19, 0.2);
-            margin: 1rem 0 !important;
-            box-shadow: 0 4px 12px rgba(139, 69, 19, 0.15);
+        /* CORRECTED BUTTONS - Enhanced styling */
+        .stButton > button {
+            background: linear-gradient(135deg, var(--primary), var(--secondary)) !important;
+            color: white !important;
+            border-radius: 12px !important;
+            border: 2px solid var(--primary) !important;
+            font-weight: 700 !important;
+            font-size: 0.95rem !important;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+            width: 100% !important;
+            margin: 0.8rem 0 !important;
+            cursor: pointer !important;
+            box-shadow: 0 4px 12px rgba(139, 69, 19, 0.25) !important;
+            text-transform: uppercase !important;
+            letter-spacing: 0.8px !important;
+            min-height: 48px !important;
+            text-align: center !important;
+            display: block !important;
+            position: relative !important;
+            z-index: 1 !important;
         }
         
-        /* Enhanced Expander - Reduced padding */
+        .stButton > button:hover {
+            background: linear-gradient(135deg, var(--accent), var(--primary)) !important;
+            transform: translateY(-3px) scale(1.03) !important;
+            box-shadow: 0 8px 25px rgba(139, 69, 19, 0.35) !important;
+            border-color: var(--accent) !important;
+        }
+        
+        .stButton > button:active {
+            transform: translateY(-1px) scale(1.01) !important;
+            box-shadow: 0 4px 15px rgba(139, 69, 19, 0.3) !important;
+        }
+        
+        .stButton > button:focus {
+            outline: 3px solid var(--primary) !important;
+            outline-offset: 2px !important;
+        }
+        
+        /* Enhanced Expander - CORRECTED */
         .streamlit-expanderHeader {
             background: linear-gradient(135deg, var(--primary), var(--secondary)) !important;
             color: white !important;
-            font-weight: 700 !important;
-            border-radius: 10px !important;
-            padding: 0.8rem 1.5rem !important;
+            font-weight: 600 !important;
+            border-radius: 12px !important;
             text-transform: uppercase !important;
             letter-spacing: 0.8px !important;
             font-size: 0.9rem !important;
             transition: all 0.3s ease !important;
             text-align: center !important;
-            margin-bottom: 0 !important;
-            box-shadow: 0 3px 10px rgba(139, 69, 19, 0.25) !important;
+            margin-top: 1rem !important;
         }
         
         .streamlit-expanderHeader:hover {
             background: linear-gradient(135deg, var(--accent), var(--primary)) !important;
-            transform: scale(1.01) translateY(-1px) !important;
-            box-shadow: 0 5px 15px rgba(139, 69, 19, 0.35) !important;
+            transform: scale(1.02) !important;
         }
         
         div[data-testid="stExpander"] {
@@ -699,140 +774,46 @@ class StyleManager(UIComponent):
             border-radius: 12px !important;
             overflow: hidden !important;
             margin: 1rem 0 !important;
-            box-shadow: 0 4px 15px rgba(139, 69, 19, 0.2) !important;
-            background: linear-gradient(135deg, rgba(245, 222, 179, 0.08), rgba(210, 180, 140, 0.05)) !important;
+            box-shadow: 0 4px 12px rgba(139, 69, 19, 0.1) !important;
+            background: linear-gradient(135deg, rgba(245, 222, 179, 0.15), rgba(210, 180, 140, 0.1)) !important;
         }
         
-        /* Expander content - Reduced padding */
-        div[data-testid="stExpander"] div[data-testid="stExpanderDetails"] {
-            padding: 1rem !important;
-            line-height: 1.5 !important;
-        }
-        
-        /* Details Section - Reduced padding */
-        .details-section {
-            background: linear-gradient(135deg, rgba(245, 222, 179, 0.2), rgba(210, 180, 140, 0.1));
-            padding: 1.2rem !important;
-            border-radius: 10px;
-            border: 1px solid rgba(139, 69, 19, 0.15);
-            margin: 0.8rem 0 !important;
-            box-shadow: inset 0 2px 4px rgba(139, 69, 19, 0.1);
-        }
-        
-        .detail-item {
-            margin-bottom: 1rem !important;
-            padding-bottom: 0.8rem !important;
-            border-bottom: 1px solid rgba(139, 69, 19, 0.15);
-            transition: background-color 0.2s ease;
-        }
-        
-        .detail-item:last-child {
-            border-bottom: none;
-            margin-bottom: 0 !important;
-            padding-bottom: 0 !important;
-        }
-        
-        .detail-item:hover {
-            background-color: rgba(245, 222, 179, 0.1);
-            border-radius: 6px;
-            padding: 0.4rem !important;
-            margin: 0 -0.4rem 1rem -0.4rem !important;
-        }
-        
-        .detail-label {
-            font-weight: 700;
-            color: var(--accent);
-            font-size: 0.95rem;
-            margin-bottom: 0.4rem !important;
-            display: flex;
-            align-items: center;
-            gap: 0.4rem;
-        }
-        
-        .detail-value {
-            color: var(--dark);
-            line-height: 1.5;
-            font-size: 0.9rem;
-        }
-        
-        /* Enhanced Buttons - Reduced padding */
-        .stButton > button {
-            background: linear-gradient(135deg, var(--primary), var(--secondary)) !important;
-            color: white !important;
-            border: 2px solid var(--brown-medium) !important;
-            border-radius: 10px !important;
-            font-weight: 700 !important;
-            text-transform: uppercase !important;
-            letter-spacing: 0.6px !important;
-            padding: 0.6rem 1.2rem !important;
-            font-size: 0.85rem !important;
-            box-shadow: 0 4px 12px rgba(139, 69, 19, 0.3) !important;
-            transition: all 0.3s ease !important;
-            cursor: pointer !important;
-            text-align: center !important;
-            margin: 0.5rem 0 !important;
-        }
-        
-        .stButton > button:hover {
-            background: linear-gradient(135deg, var(--accent), var(--primary)) !important;
-            transform: translateY(-2px) scale(1.02) !important;
-            box-shadow: 0 6px 18px rgba(139, 69, 19, 0.4) !important;
-        }
-        
-        .stButton > button:active {
-            transform: translateY(0) scale(0.98) !important;
-            box-shadow: 0 2px 8px rgba(139, 69, 19, 0.3) !important;
-        }
-        
-        /* Edit/Delete Buttons - Minimal spacing */
-        .edit-delete-row {
-            display: flex;
-            gap: 0.5rem;
-            margin: 0.8rem 0 !important;
-            align-items: center;
-            justify-content: space-between;
-        }
-        
-        .edit-delete-row .stButton {
-            flex: 1;
-        }
-        
-        .edit-delete-row .stButton > button {
-            background: linear-gradient(135deg, var(--brown-medium), var(--secondary)) !important;
-            padding: 0.5rem 0.8rem !important;
-            font-size: 0.8rem !important;
-            min-height: 36px !important;
-            margin: 0.2rem !important;
-        }
-        
-        /* Form Elements - Reduced padding */
+        /* Form Styling - IMPROVED */
         .stTextInput > div > div > input,
         .stTextArea > div > div > textarea,
-        .stNumberInput > div > div > input {
+        .stNumberInput > div > div > input,
+        .stSelectbox > div > div > select {
             border-radius: 10px !important;
-            border: 2px solid rgba(139, 69, 19, 0.2) !important;
+            border: 2px solid var(--brown-light) !important;
             background: rgba(255, 255, 255, 0.95) !important;
+            padding: 0.75rem !important;
+            font-size: 1rem !important;
             transition: all 0.3s ease !important;
-            font-size: 0.9rem !important;
-            padding: 0.6rem 0.8rem !important;
             color: var(--dark) !important;
         }
         
         .stTextInput > div > div > input:focus,
         .stTextArea > div > div > textarea:focus,
-        .stNumberInput > div > div > input:focus {
+        .stNumberInput > div > div > input:focus,
+        .stSelectbox > div > div > select:focus {
             border-color: var(--primary) !important;
             box-shadow: 0 0 0 3px rgba(139, 69, 19, 0.15) !important;
             background: white !important;
             outline: none !important;
         }
         
-        /* File Uploader - Reduced padding */
+        .stTextInput > div > div > input::placeholder,
+        .stTextArea > div > div > textarea::placeholder {
+            color: var(--brown-medium) !important;
+            font-style: italic !important;
+        }
+        
+        /* File Uploader - ENHANCED */
         .stFileUploader {
             background: linear-gradient(135deg, rgba(245, 222, 179, 0.3), rgba(210, 180, 140, 0.2)) !important;
             border: 3px dashed var(--secondary) !important;
-            border-radius: 12px !important;
-            padding: 1.5rem !important;
+            border-radius: 16px !important;
+            padding: 2rem !important;
             text-align: center !important;
             transition: all 0.3s ease !important;
         }
@@ -840,99 +821,82 @@ class StyleManager(UIComponent):
         .stFileUploader:hover {
             border-color: var(--primary) !important;
             background: linear-gradient(135deg, rgba(245, 222, 179, 0.4), rgba(210, 180, 140, 0.3)) !important;
-            box-shadow: 0 3px 10px rgba(139, 69, 19, 0.2) !important;
+            box-shadow: 0 4px 12px rgba(139, 69, 19, 0.2) !important;
         }
         
-        /* Alert Messages - Reduced padding */
-        .stAlert {
-            border-radius: 10px !important;
-            border: none !important;
-            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1) !important;
-            margin: 0.8rem 0 !important;
-            padding: 0.8rem 1.2rem !important;
-        }
-        
-        .stSuccess {
-            background: linear-gradient(135deg, rgba(76, 175, 80, 0.1), rgba(129, 199, 132, 0.1)) !important;
-            border-left: 4px solid #4CAF50 !important;
-        }
-        
-        .stError {
-            background: linear-gradient(135deg, rgba(244, 67, 54, 0.1), rgba(239, 154, 154, 0.1)) !important;
-            border-left: 4px solid #F44336 !important;
-        }
-        
-        .stWarning {
-            background: linear-gradient(135deg, rgba(255, 152, 0, 0.1), rgba(255, 204, 128, 0.1)) !important;
-            border-left: 4px solid #FF9800 !important;
-        }
-        
-        /* Brown Cards - Reduced padding */
-        .brown-card {
-            background: var(--glass-bg);
-            border-radius: 12px;
-            padding: 1.5rem !important;
-            box-shadow: var(--shadow);
-            border: 1px solid rgba(139, 69, 19, 0.15);
-            margin-bottom: 1.5rem !important;
-            backdrop-filter: blur(10px);
-        }
-        
-        /* Empty State - Reduced padding */
+        /* Empty State */
         .empty-state {
             text-align: center !important;
-            padding: 2rem 1.5rem !important;
             font-style: italic;
             color: var(--secondary);
-            background: linear-gradient(135deg, rgba(245, 222, 179, 0.4), rgba(210, 180, 140, 0.3));
-            border-radius: 12px;
+            background: linear-gradient(135deg, rgba(245, 222, 179, 0.5), rgba(210, 180, 140, 0.3));
+            border-radius: 16px;
             border: 2px dashed var(--secondary);
-            margin: 1.5rem 0 !important;
+            margin: 2rem 0;
         }
         
         .empty-state::before {
             content: "🎨";
             display: block;
-            font-size: 2.5rem;
-            margin-bottom: 0.8rem;
+            font-size: 3rem;
+            margin-bottom: 1rem;
             color: var(--secondary);
         }
         
-        /* Mobile Responsiveness */
+        /* Role Badge */
+        .role-badge {
+            display: inline-flex;
+            align-items: center;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            margin-left: 1rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            box-shadow: 0 4px 12px rgba(139, 69, 19, 0.3);
+            transition: all 0.2s ease;
+            border: 2px solid rgba(139, 69, 19, 0.3);
+        }
+        
+        .role-badge:hover {
+            transform: scale(1.05);
+            box-shadow: 0 6px 18px rgba(139, 69, 19, 0.4);
+        }
+        
+        .role-artist {
+            background: linear-gradient(135deg, var(--primary), var(--accent));
+            color: white;
+            border-color: var(--brown-medium);
+        }
+        
+        .role-customer {
+            background: linear-gradient(135deg, var(--secondary), var(--brown-medium));
+            color: white;
+            border-color: var(--brown-dark);
+        }
+        
+        /* Mobile Responsiveness - ENHANCED */
         @media (max-width: 768px) {
-            .main .block-container {
-                padding-left: 1rem !important;
-                padding-right: 1rem !important;
-            }
-            
-            .main-title, .portfolio-title {
-                font-size: 2rem;
+            .portfolio-title {
+                font-size: 2.2rem;
             }
             
             .artwork-card, .blog-card {
-                padding: 0.3rem 0 !important;
-                margin-bottom: 1rem !important;
+                margin-bottom: 1.5rem;
             }
             
             .art-title, .blog-title-display {
-                font-size: 1.2rem;
+                font-size: 1.4rem;
             }
             
             .art-price {
-                font-size: 1rem;
-                padding: 0.5rem 0.8rem !important;
+                font-size: 1.2rem;
+                padding: 0.6rem 1rem;
             }
             
-            .form-container {
-                padding: 1rem !important;
-            }
-            
-            .portfolio-info {
-                padding: 1rem !important;
-            }
-            
-            .details-section {
-                padding: 1rem !important;
+            .stButton > button {
+                font-size: 0.9rem !important;
+                min-height: 44px !important;
             }
         }
         
@@ -940,7 +904,7 @@ class StyleManager(UIComponent):
         @keyframes fadeInUp {
             from {
                 opacity: 0;
-                transform: translateY(20px);
+                transform: translateY(30px);
             }
             to {
                 opacity: 1;
@@ -948,17 +912,60 @@ class StyleManager(UIComponent):
             }
         }
         
-        .portfolio-section, .artwork-card, .blog-card {
-            animation: fadeInUp 0.4s ease-out;
+        .artwork-card, .blog-card {
+            animation: fadeInUp 0.6s ease-out;
         }
         </style>
         """, unsafe_allow_html=True)
 
+class ArtistSelector(UIComponent):
+    """ENHANCED: Artist selection component for customers with improved UI"""
+    
+    def render(self, user_ctx: UserCtx, selected_artist: str = "", is_owner: bool = False) -> str:
+        """Render artist selection dropdown for customers with enhanced styling"""
+        if user_ctx.role == UserRole.ARTIST:
+            return user_ctx.username
+        
+        # Customer can browse different artist portfolios
+        try:
+            available_artists = self.db.get_available_artists()
+            
+            if not available_artists:
+                st.warning("🔍 No artist portfolios available to view.")
+                return user_ctx.username
+            
+            # st.markdown('<div class="artist-selector">', unsafe_allow_html=True)
+            st.markdown('### 🎨 Select Artist Portfolio to View')
+            
+            # Set default selection
+            default_idx = 0
+            if selected_artist in available_artists:
+                default_idx = available_artists.index(selected_artist)
+            
+            selected_artist = st.selectbox(
+                "Choose an artist:",
+                options=available_artists,
+                index=default_idx,
+                help="Select an artist whose portfolio you'd like to explore",
+                key="artist_selector"
+            )
+            
+            if selected_artist:
+                st.success(f"✅ Now viewing **{selected_artist}**'s portfolio")
+            
+            st.markdown('</div>', unsafe_allow_html=True)
+            return selected_artist
+            
+        except Exception as e:
+            logger.error(f"Error loading artists: {e}")
+            st.error("Unable to load artist portfolios.")
+            return user_ctx.username
+
 class PortfolioEditForms(UIComponent):
-    """Portfolio editing forms for artists - NOW IN DROPDOWNS with reduced padding"""
+    """Portfolio editing forms for artists - IN DROPDOWNS with enhanced UI"""
     
     def render(self, user_ctx: UserCtx, selected_artist: str, is_owner: bool) -> None:
-        """Render edit forms for portfolio owner in dropdowns"""
+        """Render edit forms for portfolio owner in dropdowns with enhanced styling"""
         if not is_owner:
             return
         
@@ -974,14 +981,13 @@ class PortfolioEditForms(UIComponent):
         
         # Portfolio info edit form IN DROPDOWN
         with st.expander("📝 Edit Portfolio Info", expanded=False):
-            st.markdown('<div class="form-container">', unsafe_allow_html=True)
             form_key = f"portfolio_info_form_{st.session_state.portfolio_form_counter}"
             
             with st.form(form_key, clear_on_submit=False):
                 new_bio = st.text_area("Artist Bio", value=portfolio.bio, height=120,
-                                     placeholder="Tell people about your artistic journey...")
+                                     placeholder="Tell people about your artistic journey, your inspiration, and what makes your work unique...")
                 new_website = st.text_input("Website / Social Link", value=portfolio.website,
-                                          placeholder="https://your-website.com")
+                                          placeholder="https://your-website.com or social media link")
                 submitted_info = st.form_submit_button("💾 Save Portfolio Info", use_container_width=True)
                 
                 if submitted_info:
@@ -989,29 +995,27 @@ class PortfolioEditForms(UIComponent):
                     if success:
                         st.session_state.portfolio_form_counter += 1
                         st.rerun()
-            st.markdown('</div>', unsafe_allow_html=True)
 
         # Artwork upload form IN DROPDOWN
         with st.expander("➕ Upload New Artwork", expanded=False):
-            st.markdown('<div class="form-container">', unsafe_allow_html=True)
             form_key = f"upload_artwork_form_{st.session_state.artwork_form_counter}"
             
-            with st.form(form_key, clear_on_submit=True):
+            with st.form(form_key, clear_on_submit=False):
                 col1, col2 = st.columns(2)
                 
                 with col1:
                     title = st.text_input("Artwork Title*", max_chars=self.cfg.max_title_length,
-                                        placeholder="e.g., Sunset Landscape")
-                    materials = st.text_input("Materials", placeholder="e.g., Oil on canvas")
-                    state = st.text_input("Condition", placeholder="e.g., Excellent")
+                                        placeholder="e.g., Sunset Over Mountains")
+                    materials = st.text_input("Materials", placeholder="e.g., Oil on canvas, 30x40cm")
+                    state = st.text_input("Condition", placeholder="e.g., Excellent, Original")
                 
                 with col2:
-                    style = st.text_input("Style/Genre", placeholder="e.g., Abstract")
-                    price = st.number_input("Price (₹)*", min_value=0, step=1)
+                    style = st.text_input("Style/Genre", placeholder="e.g., Landscape, Abstract")
+                    price = st.number_input("Price (₹)*", min_value=0.0, step=1.0)
                     image_file = st.file_uploader("Artwork Image*", type=self.cfg.allowed_image_types)
                 
-                description = st.text_area("Description", height=80,
-                                         placeholder="Describe your artwork...")
+                description = st.text_area("Description", height=100,
+                                         placeholder="Describe your artwork, the inspiration behind it, techniques used...")
 
                 submitted_artwork = st.form_submit_button("📤 Upload Artwork", use_container_width=True)
 
@@ -1021,18 +1025,16 @@ class PortfolioEditForms(UIComponent):
                     if success:
                         st.session_state.artwork_form_counter += 1
                         st.rerun()
-            st.markdown('</div>', unsafe_allow_html=True)
 
         # Blog upload form IN DROPDOWN
         with st.expander("➕ Upload New Blog", expanded=False):
-            st.markdown('<div class="form-container">', unsafe_allow_html=True)
             form_key = f"upload_blog_form_{st.session_state.blog_form_counter}"
             
-            with st.form(form_key, clear_on_submit=True):
+            with st.form(form_key, clear_on_submit=False):
                 blog_title = st.text_input("Blog Title*", max_chars=self.cfg.max_blog_title_length,
-                                         placeholder="My artistic journey...")
+                                         placeholder="Share your artistic journey or insights...")
                 blog_content = st.text_area("Content*", height=150,
-                                          placeholder="Share your artistic experiences...")
+                                          placeholder="Write about your artistic experiences, techniques, inspirations, or stories behind your artworks...")
                 blog_image_file = st.file_uploader("Blog Image (optional)", 
                                                  type=self.cfg.allowed_image_types)
 
@@ -1043,10 +1045,9 @@ class PortfolioEditForms(UIComponent):
                     if success:
                         st.session_state.blog_form_counter += 1
                         st.rerun()
-            st.markdown('</div>', unsafe_allow_html=True)
 
     def _handle_portfolio_update(self, username: str, bio: str, website: str) -> bool:
-        """Handle portfolio update with validation"""
+        """Handle portfolio update with enhanced validation"""
         try:
             with st.spinner("🔄 Updating portfolio..."):
                 updated_portfolio = Portfolio(
@@ -1070,7 +1071,7 @@ class PortfolioEditForms(UIComponent):
     def _handle_artwork_upload(self, user_ctx: UserCtx, title: str, materials: str, 
                              state: str, style: str, price: float, image_file: Any, 
                              description: str) -> bool:
-        """Handle artwork upload submission with validation"""
+        """Handle artwork upload submission with enhanced validation"""
         
         # Enhanced validation
         validation_errors = []
@@ -1127,7 +1128,7 @@ class PortfolioEditForms(UIComponent):
 
     def _handle_blog_upload(self, user_ctx: UserCtx, blog_title: str, 
                           blog_content: str, blog_image_file: Any) -> bool:
-        """Handle blog upload submission with validation"""
+        """Handle blog upload submission with enhanced validation"""
         
         # Enhanced validation
         validation_errors = []
@@ -1175,10 +1176,10 @@ class PortfolioEditForms(UIComponent):
             return False
 
 class PortfolioInfoDisplay(UIComponent):
-    """Portfolio information display with brown theme and reduced padding"""
+    """Portfolio information display with enhanced brown theme"""
     
     def render(self, user_ctx: UserCtx, selected_artist: str, is_owner: bool) -> None:
-        """Render portfolio bio and website info with brown styling"""
+        """Render portfolio bio and website info with enhanced brown styling"""
         portfolio = self.db.get_portfolio_data(selected_artist)
         
         st.markdown('<div class="portfolio-section">', unsafe_allow_html=True)
@@ -1186,17 +1187,17 @@ class PortfolioInfoDisplay(UIComponent):
         
         st.markdown('<h3 style="color: var(--accent); margin: 0 0 1rem 0;">👨‍🎨 Artist Bio</h3>', unsafe_allow_html=True)
         if portfolio.bio:
-            st.markdown(f'<div class="detail-value">{portfolio.bio}</div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="detail-value" style="line-height: 1.7; text-align: justify;">{portfolio.bio}</div>', unsafe_allow_html=True)
         else:
-            st.markdown('<div class="detail-value" style="font-style: italic;">*No bio provided yet.*</div>', unsafe_allow_html=True)
+            st.markdown('<div class="detail-value" style="font-style: italic; color: var(--secondary);">*No bio provided yet.*</div>', unsafe_allow_html=True)
         
         st.markdown('<div style="margin: 1.5rem 0;"></div>', unsafe_allow_html=True)
         
         st.markdown('<h3 style="color: var(--accent); margin: 0 0 1rem 0;">🌐 Website / Social Link</h3>', unsafe_allow_html=True)
         if portfolio.website:
-            st.markdown(f'<div class="detail-value">🔗 <a href="{portfolio.website}" target="_blank" style="color: var(--primary);">{portfolio.website}</a></div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="detail-value">🔗 <a href="{portfolio.website}" target="_blank" style="color: var(--primary); text-decoration: none; font-weight: 600;">{portfolio.website}</a></div>', unsafe_allow_html=True)
         else:
-            st.markdown('<div class="detail-value" style="font-style: italic;">*No website or social link provided.*</div>', unsafe_allow_html=True)
+            st.markdown('<div class="detail-value" style="font-style: italic; color: var(--secondary);">*No website or social link provided.*</div>', unsafe_allow_html=True)
         
         if portfolio.last_updated:
             st.markdown('<div style="margin: 1.5rem 0;"></div>', unsafe_allow_html=True)
@@ -1206,10 +1207,10 @@ class PortfolioInfoDisplay(UIComponent):
         st.markdown('</div>', unsafe_allow_html=True)
 
 class ArtworkDisplay(UIComponent):
-    """Artwork display and management with brown theme and reduced padding"""
+    """Artwork display and management with enhanced brown theme and customer features"""
     
     def render(self, user_ctx: UserCtx, selected_artist: str, is_owner: bool) -> None:
-        """Render artworks display with conditional edit/delete for owner"""
+        """Render artworks display with conditional edit/delete for owner and add to cart for customers"""
         artworks = self.db.get_artworks_by_artist(selected_artist)
         
         st.markdown('<div class="portfolio-section">', unsafe_allow_html=True)
@@ -1232,12 +1233,12 @@ class ArtworkDisplay(UIComponent):
             cols = st.columns(self.cfg.columns_count)
             for idx, artwork in enumerate(artworks):
                 col = cols[idx % self.cfg.columns_count]
-                self._render_artwork_card(artwork, col, is_owner)
+                self._render_artwork_card(artwork, col, is_owner, user_ctx)
         
         st.markdown('</div>', unsafe_allow_html=True)
 
-    def _render_artwork_card(self, artwork: Artwork, col, is_owner: bool) -> None:
-        """Render individual artwork card with brown theme"""
+    def _render_artwork_card(self, artwork: Artwork, col, is_owner: bool, user_ctx: UserCtx) -> None:
+        """Render individual artwork card with enhanced brown theme and customer features"""
         edit_key = SessionManager.get_edit_key("artwork", artwork.id)
         
         with col:
@@ -1246,12 +1247,12 @@ class ArtworkDisplay(UIComponent):
             if is_owner and st.session_state.get(edit_key, False):
                 self._render_artwork_edit_form(artwork, edit_key)
             else:
-                self._render_artwork_display(artwork, is_owner, edit_key)
+                self._render_artwork_display(artwork, is_owner, edit_key, user_ctx)
             
             st.markdown('</div>', unsafe_allow_html=True)
 
     def _render_artwork_edit_form(self, artwork: Artwork, edit_key: str) -> None:
-        """Render artwork edit form with brown styling"""
+        """Render artwork edit form with enhanced brown styling"""
         st.markdown('<h4 style="color: var(--accent); margin: 0 0 1rem 0;">✏️ Edit Artwork</h4>', unsafe_allow_html=True)
         
         with st.form(f"edit_form_{artwork.id}", clear_on_submit=False):
@@ -1259,7 +1260,7 @@ class ArtworkDisplay(UIComponent):
             new_materials = st.text_input("Materials Used", value=artwork.materials)
             new_state = st.text_input("State / Condition", value=artwork.state)
             new_style = st.text_input("Art Style/Genre", value=artwork.style)
-            new_price = st.number_input("Price (₹)", min_value=0, step=1, value=int(artwork.price))
+            new_price = st.number_input("Price (₹)", min_value=0.0, step=1.0, value=float(artwork.price))
             new_description = st.text_area("Description", value=artwork.description, height=80)
 
             col1, col2 = st.columns(2)
@@ -1293,8 +1294,8 @@ class ArtworkDisplay(UIComponent):
                 st.session_state[edit_key] = False
                 st.rerun()
 
-    def _render_artwork_display(self, artwork: Artwork, is_owner: bool, edit_key: str) -> None:
-        """Render artwork display view with brown theme"""
+    def _render_artwork_display(self, artwork: Artwork, is_owner: bool, edit_key: str, user_ctx: UserCtx) -> None:
+        """Render artwork display view with enhanced brown theme and customer features"""
         # Title with brown styling
         st.markdown(f'<div class="art-title">{artwork.title}</div>', unsafe_allow_html=True)
         
@@ -1310,44 +1311,23 @@ class ArtworkDisplay(UIComponent):
         # Price display
         st.markdown(f'<div class="art-price">₹{artwork.price:.1f}</div>', unsafe_allow_html=True)
 
+        # Details in expander
         with st.expander("📋 View Details"):
-            st.markdown('<div class="details-section">', unsafe_allow_html=True)
+            st.markdown('<div style="padding: 1rem;">', unsafe_allow_html=True)
             
-            # Description
-            st.markdown('<div class="detail-item">', unsafe_allow_html=True)
-            st.markdown('<div class="detail-label">📝 Description</div>', unsafe_allow_html=True)
-            st.markdown(f'<div class="detail-value">{artwork.description or "_No description provided_"}</div>', unsafe_allow_html=True)
-            st.markdown('</div>', unsafe_allow_html=True)
-            
-            # Materials
-            st.markdown('<div class="detail-item">', unsafe_allow_html=True)
-            st.markdown('<div class="detail-label">🎨 Materials</div>', unsafe_allow_html=True)
-            st.markdown(f'<div class="detail-value">{artwork.materials or "_Not specified_"}</div>', unsafe_allow_html=True)
-            st.markdown('</div>', unsafe_allow_html=True)
-            
-            # State
-            st.markdown('<div class="detail-item">', unsafe_allow_html=True)
-            st.markdown('<div class="detail-label">🏷️ State</div>', unsafe_allow_html=True)
-            st.markdown(f'<div class="detail-value">{artwork.state or "_Unknown_"}</div>', unsafe_allow_html=True)
-            st.markdown('</div>', unsafe_allow_html=True)
-            
-            # Style
-            st.markdown('<div class="detail-item">', unsafe_allow_html=True)
-            st.markdown('<div class="detail-label">🎭 Style</div>', unsafe_allow_html=True)
-            st.markdown(f'<div class="detail-value">{artwork.style or "_Unknown_"}</div>', unsafe_allow_html=True)
-            st.markdown('</div>', unsafe_allow_html=True)
-            
-            # Upload Date
-            st.markdown('<div class="detail-item">', unsafe_allow_html=True)
-            st.markdown('<div class="detail-label">📅 Upload Date</div>', unsafe_allow_html=True)
-            st.markdown(f'<div class="detail-value">{artwork.upload_date or "-"}</div>', unsafe_allow_html=True)
-            st.markdown('</div>', unsafe_allow_html=True)
+            if artwork.description:
+                st.markdown(f"**📝 Description:** {artwork.description}")
+            if artwork.materials:
+                st.markdown(f"**🎨 Materials:** {artwork.materials}")
+            if artwork.state:
+                st.markdown(f"**🏷️ State:** {artwork.state}")
+            if artwork.style:
+                st.markdown(f"**🎭 Style:** {artwork.style}")
+            if artwork.upload_date:
+                st.markdown(f"**📅 Upload Date:** {artwork.upload_date}")
 
             if is_owner:
-                st.markdown('<div class="detail-item">', unsafe_allow_html=True)
-                st.markdown('<div class="detail-label">⚙️ Actions</div>', unsafe_allow_html=True)
-                st.markdown('<div class="edit-delete-row">', unsafe_allow_html=True)
-                
+                st.markdown("---")
                 col1, col2 = st.columns(2)
                 with col1:
                     if st.button("✏️ Edit", key=f"edit_btn_{artwork.id}", use_container_width=True):
@@ -1369,14 +1349,20 @@ class ArtworkDisplay(UIComponent):
                 # Show confirmation message if delete was clicked
                 if st.session_state.get(f"confirm_delete_artwork_{artwork.id}", False):
                     st.warning("⚠️ Click Delete again to confirm deletion")
-                
-                st.markdown('</div>', unsafe_allow_html=True)
-                st.markdown('</div>', unsafe_allow_html=True)
             
             st.markdown('</div>', unsafe_allow_html=True)
 
+        # ENHANCED: Add to Cart button for customers BELOW the expander
+        if not is_owner and user_ctx.role == UserRole.CUSTOMER:
+            if st.button("🛒 Add to Cart", key=f"cart_{artwork.id}_{user_ctx.username}", use_container_width=True):
+                if self.db.add_artwork_to_cart(user_ctx.username, artwork):
+                    st.toast(f"✅ '{artwork.title}' added to cart!", icon="🛒")
+                    st.switch_page("pages/10_Cart.py")
+                else:
+                    st.error("❌ Failed to add to cart")
+
 class BlogDisplay(UIComponent):
-    """Blog display and management with brown theme and reduced padding"""
+    """Blog display and management with enhanced brown theme"""
     
     def render(self, user_ctx: UserCtx, selected_artist: str, is_owner: bool) -> None:
         """Render blogs display with conditional edit/delete for owner"""
@@ -1405,7 +1391,7 @@ class BlogDisplay(UIComponent):
         st.markdown('</div>', unsafe_allow_html=True)
 
     def _render_blog_card(self, blog: Blog, is_owner: bool) -> None:
-        """Render individual blog card with brown theme"""
+        """Render individual blog card with enhanced brown theme"""
         edit_key = SessionManager.get_edit_key("blog", blog.id)
         
         with st.container():
@@ -1419,7 +1405,7 @@ class BlogDisplay(UIComponent):
             st.markdown('</div>', unsafe_allow_html=True)
 
     def _render_blog_edit_form(self, blog: Blog, edit_key: str) -> None:
-        """Render blog edit form with brown styling"""
+        """Render blog edit form with enhanced brown styling"""
         st.markdown('<h4 style="color: var(--accent); margin: 0 0 1rem 0;">✏️ Edit Blog</h4>', unsafe_allow_html=True)
         
         with st.form(f"edit_blog_form_{blog.id}", clear_on_submit=False):
@@ -1455,30 +1441,23 @@ class BlogDisplay(UIComponent):
                 st.rerun()
 
     def _render_blog_display(self, blog: Blog, is_owner: bool, edit_key: str) -> None:
-        """Render blog display view with brown theme"""
+        """Render blog display view with enhanced brown theme"""
         # Title with brown styling
         st.markdown(f'<div class="blog-title-display">{blog.title}</div>', unsafe_allow_html=True)
         
         if blog.timestamp:
-            st.markdown(f'<div style="color: var(--secondary); font-style: italic; margin-bottom: 0.8rem;">Published: {blog.timestamp}</div>', unsafe_allow_html=True)
+            st.markdown(f'<div style="color: var(--secondary); font-style: italic; margin-bottom: 0.8rem;">📅 Published: {blog.timestamp}</div>', unsafe_allow_html=True)
         
         if blog.image and os.path.exists(blog.image):
             st.image(blog.image, use_container_width=True)
         
         with st.expander("📖 Read Blog", expanded=False):
-            st.markdown('<div class="details-section">', unsafe_allow_html=True)
+            st.markdown('<div style="padding: 1rem;">', unsafe_allow_html=True)
             
-            # Blog content
-            st.markdown('<div class="detail-item">', unsafe_allow_html=True)
-            st.markdown('<div class="detail-label">📝 Content</div>', unsafe_allow_html=True)
-            st.markdown(f'<div class="detail-value">{blog.content}</div>', unsafe_allow_html=True)
-            st.markdown('</div>', unsafe_allow_html=True)
+            st.markdown(f"**Content:** {blog.content}")
             
             if is_owner:
-                st.markdown('<div class="detail-item">', unsafe_allow_html=True)
-                st.markdown('<div class="detail-label">⚙️ Actions</div>', unsafe_allow_html=True)
-                st.markdown('<div class="edit-delete-row">', unsafe_allow_html=True)
-                
+                st.markdown("---")
                 col1, col2 = st.columns(2)
                 with col1:
                     if st.button("✏️ Edit", key=f"edit_blog_btn_{blog.id}", use_container_width=True):
@@ -1500,17 +1479,14 @@ class BlogDisplay(UIComponent):
                 # Show confirmation message if delete was clicked
                 if st.session_state.get(f"confirm_delete_blog_{blog.id}", False):
                     st.warning("⚠️ Click Delete again to confirm deletion")
-                
-                st.markdown('</div>', unsafe_allow_html=True)
-                st.markdown('</div>', unsafe_allow_html=True)
             
             st.markdown('</div>', unsafe_allow_html=True)
 
 # ─────────────────────────────────────────────────────────────────────────────
-#  MAIN APPLICATION
+#  MAIN APPLICATION - ENHANCED
 # ─────────────────────────────────────────────────────────────────────────────
 class PortfolioApplication:
-    """Main portfolio application with corrected UI and reduced padding"""
+    """Main portfolio application with customer browsing capabilities - ENHANCED"""
     
     def __init__(self):
         self.cfg = UIConfig()
@@ -1521,15 +1497,16 @@ class PortfolioApplication:
     def _initialize_components(self) -> None:
         """Initialize all UI components"""
         self.style_manager = StyleManager(self.cfg, self.db, self.files)
+        self.artist_selector = ArtistSelector(self.cfg, self.db, self.files)
         self.edit_forms = PortfolioEditForms(self.cfg, self.db, self.files)
         self.info_display = PortfolioInfoDisplay(self.cfg, self.db, self.files)
         self.artwork_display = ArtworkDisplay(self.cfg, self.db, self.files)
         self.blog_display = BlogDisplay(self.cfg, self.db, self.files)
     
     def run(self) -> None:
-        """Main application entry point with reduced padding"""
+        """Main application entry point - ENHANCED"""
         try:
-            # Apply comprehensive brown styling with reduced padding
+            # Apply comprehensive brown styling
             self.style_manager.render(None)
             
             # Authentication check
@@ -1538,19 +1515,24 @@ class PortfolioApplication:
                 st.warning("🔐 Please log in to view portfolios.")
                 st.stop()
             
-            # Get artist selection
+            # Get artist selection (ENHANCED: includes customer browsing)
             selected_artist, is_owner = self._get_artist_selection(user_ctx)
             
-            # Render page header with reduced padding
+            # SAFETY CHECK: Ensure we have a valid artist name
+            if not selected_artist:
+                st.error("❌ Unable to determine selected artist.")
+                return
+            
+            # Render page header
             self._render_header(selected_artist, user_ctx.role, is_owner)
             
-            # Render components - forms in dropdowns first, then displays
+            # Render components - forms first (only for owners), then displays
             self.edit_forms.render(user_ctx, selected_artist, is_owner)
             self.info_display.render(user_ctx, selected_artist, is_owner)
             self.artwork_display.render(user_ctx, selected_artist, is_owner)
             self.blog_display.render(user_ctx, selected_artist, is_owner)
             
-            # Footer with reduced padding
+            # Footer
             self._render_footer()
             
         except Exception as e:
@@ -1558,26 +1540,41 @@ class PortfolioApplication:
             st.error(f"❌ Application error: {e}")
     
     def _get_artist_selection(self, user_ctx: UserCtx) -> tuple[str, bool]:
-        """Get selected artist and ownership status"""
-        if user_ctx.role == UserRole.ARTIST:
-            return user_ctx.username, True
-        else:
-            return user_ctx.username, False
+        """Get selected artist and ownership status with customer browsing - ENHANCED"""
+        try:
+            if user_ctx.role == UserRole.ARTIST:
+                return user_ctx.username, True
+            else:
+                # For customers, show artist selector
+                selected_artist = self.artist_selector.render(user_ctx)
+                if not selected_artist:
+                    # Fallback to first available artist or current user
+                    available_artists = self.db.get_available_artists()
+                    if available_artists:
+                        selected_artist = available_artists[0]
+                    else:
+                        selected_artist = user_ctx.username
+                return selected_artist, False
+        except Exception as e:
+            logger.error(f"Error in artist selection: {e}")
+            return user_ctx.username, user_ctx.role == UserRole.ARTIST
     
     def _render_header(self, selected_artist: str, user_role: UserRole, is_owner: bool) -> None:
-        """Render page header with reduced padding"""
-        # Header container with reduced padding
+        """Render page header with enhanced styling"""
+        st.markdown(f'<h1 class="portfolio-title">{self.cfg.page_title}</h1>', unsafe_allow_html=True)
+        st.markdown('<div class="title-divider"></div>', unsafe_allow_html=True)
+        
         st.markdown('<div class="brown-card" style="text-align: center;">', unsafe_allow_html=True)
         
         col1, col2 = st.columns([3, 1])
         with col1:
             if user_role == UserRole.ARTIST:
-                st.markdown('<h1 class="portfolio-title">🎨 Your Portfolio</h1>', unsafe_allow_html=True)
-                st.markdown('<p style="color: var(--secondary); font-size: 1rem; font-weight: 600; margin: 0;">Manage your artistic portfolio, showcase your work and share your journey</p>', 
+                st.markdown('<h2 style="color: var(--accent); margin: 0 0 0.5rem 0;">Your Portfolio</h2>', unsafe_allow_html=True)
+                st.markdown('<p style="color: var(--secondary); font-size: 1.1rem; font-weight: 600; margin: 0;">Manage your artistic portfolio, showcase your work and share your journey</p>', 
                            unsafe_allow_html=True)
             else:
-                st.markdown(f'<h1 class="portfolio-title">🎨 {selected_artist}\'s Portfolio</h1>', unsafe_allow_html=True)
-                st.markdown('<p style="color: var(--secondary); font-size: 1rem; font-weight: 600; margin: 0;">Discover amazing artworks and artistic journeys</p>', 
+                st.markdown(f'<h2 style="color: var(--accent); margin: 0 0 0.5rem 0;">{selected_artist}\'s Portfolio</h2>', unsafe_allow_html=True)
+                st.markdown('<p style="color: var(--secondary); font-size: 1.1rem; font-weight: 600; margin: 0;">Discover amazing artworks and artistic journeys</p>', 
                            unsafe_allow_html=True)
         
         with col2:
@@ -1586,23 +1583,27 @@ class PortfolioApplication:
                        unsafe_allow_html=True)
         
         st.markdown('</div>', unsafe_allow_html=True)
-        st.markdown('<div class="title-divider"></div>', unsafe_allow_html=True)
     
     def _render_footer(self) -> None:
-        """Render footer with reduced padding"""
+        """Render footer with enhanced styling"""
         st.markdown('<div class="title-divider"></div>', unsafe_allow_html=True)
         st.markdown("""
         <div class="brown-card" style="text-align: center;">
             <h3 style="color: var(--accent); margin: 0 0 0.5rem 0;">🎨 Brush and Soul Portfolio</h3>
-            <p style="color: var(--secondary); font-weight: 600; font-size: 1rem; margin: 0 0 0.5rem 0;">Create • Showcase • Inspire • Connect</p>
-            <p style="font-size: 0.9rem; color: var(--brown-darker); font-weight: 500; margin: 0;">
+            <p style="color: var(--secondary); font-weight: 600; font-size: 1.1rem; margin: 0 0 0.5rem 0;">Create • Showcase • Inspire • Connect</p>
+            <p style="font-size: 0.95rem; color: var(--brown-darker); font-weight: 500; margin: 0;">
                 Your artistic journey deserves to be shared with the world
             </p>
+            <div style="margin-top: 1.5rem; padding: 1rem; background: linear-gradient(135deg, rgba(139, 69, 19, 0.1), rgba(210, 180, 140, 0.1)); border-radius: 8px; border: 1px solid var(--brown-light);">
+                <p style="color: var(--primary); font-weight: 600; margin: 0;">
+                    🌟 Where art meets inspiration, and artists find their audience 🌟
+                </p>
+            </div>
         </div>
         """, unsafe_allow_html=True)
 
 def main() -> None:
-    """Application main function with page configuration"""
+    """Application main function with page configuration - ENHANCED"""
     st.set_page_config(
         page_title="Brush and Soul - Portfolio",
         page_icon="🎨",

@@ -1,5 +1,4 @@
 from __future__ import annotations
-
 import logging
 import os
 import time
@@ -47,8 +46,8 @@ class UserRole(Enum):
 # ─────────────────────────────────────────────────────────────────────────────
 @dataclass(frozen=True)
 class UIConfig:
-    page_title: str = "Art Materials Marketplace"
-    layout: str = "wide"
+    page_title: str = "🎨 Art Materials Marketplace"
+    layout: str = "wide" 
     uploads_dir: str = "uploads/materials"
     columns: int = 3
     allowed_types: List[str] = field(default_factory=lambda: ["jpg", "jpeg", "png"])
@@ -104,10 +103,10 @@ class Material:
         }
 
 # ─────────────────────────────────────────────────────────────────────────────
-#  FILE MANAGER
+#  FILE MANAGER - FIXED
 # ─────────────────────────────────────────────────────────────────────────────
 class FileManager:
-    """Fixed file operations manager with proper error handling"""
+    """FIXED - File operations manager with comprehensive error handling"""
     
     def __init__(self, cfg: UIConfig):
         self.cfg = cfg
@@ -123,25 +122,42 @@ class FileManager:
             st.error(f"File operations not available: {e}")
 
     def save(self, file: Any) -> Optional[str]:
-        """Save uploaded file with proper error handling"""
-        if not file or not self.operations_available:
+        """FIXED - Save uploaded file with enhanced error handling"""
+        if not file:
+            logger.warning("No file provided to save")
+            return None
+        
+        if not self.operations_available:
+            logger.error("File operations not available")
+            st.error("File operations are not available")
+            return None
+        
+        # Validate file size (max 10MB)
+        if hasattr(file, 'size') and file.size > 10 * 1024 * 1024:
+            error_msg = f"File size too large. Maximum 10MB allowed."
+            logger.error(error_msg)
+            st.error(error_msg)
             return None
         
         try:
+            logger.info(f"Saving file: {file.name}")
             result = self.save_uploaded_file(file, "materials")
             if result:
                 logger.info(f"File saved successfully: {result}")
-            return result
+                return result
+            else:
+                logger.error("File save utility returned None")
+                return None
         except Exception as e:
             logger.error(f"Error saving file: {e}")
             st.error(f"Error saving file: {e}")
             return None
 
 # ─────────────────────────────────────────────────────────────────────────────
-#  FIXED DATABASE MANAGER
+#  DATABASE MANAGER - FIXED WITH EXPLICIT TRANSACTION HANDLING
 # ─────────────────────────────────────────────────────────────────────────────
 class DatabaseManager:
-    """Fixed database operations manager with proper error handling"""
+    """FIXED - Database operations manager with explicit transaction handling"""
     
     def __init__(self):
         self.operations_available = True
@@ -166,6 +182,93 @@ class DatabaseManager:
             logger.error(f"Database utilities not available: {e}")
             self.operations_available = False
             st.error(f"Database operations not available: {e}")
+    
+    def test_database_connection(self) -> bool:
+        """Test database connection explicitly"""
+        try:
+            if not self.operations_available:
+                return False
+            
+            # Try to execute a simple query
+            from utils import _instance
+            instance = _instance()
+            
+            with instance.get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("SELECT 1")
+                result = cursor.fetchone()
+                return result[0] == 1
+        except Exception as e:
+            logger.error(f"Database connection test failed: {e}")
+            return False
+    
+    def save_material_with_transaction(self, material: Material) -> bool:
+        """Save material with explicit transaction handling"""
+        try:
+            from utils import _instance
+            instance = _instance()
+            
+            with instance.get_connection() as conn:
+                cursor = conn.cursor()
+                
+                # Start transaction explicitly
+                cursor.execute("START TRANSACTION")
+                
+                try:
+                    # Format listed_date properly
+                    listed_date = datetime.now().strftime("%Y-%m-%d")
+                    
+                    # Insert material
+                    cursor.execute(
+                        """INSERT INTO materials (seller, name, description, price, category, image_path, listed_date)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s)""",
+                        (
+                            material.artist,
+                            material.name,
+                            material.description,
+                            material.price,
+                            material.category,
+                            material.image,
+                            listed_date
+                        )
+                    )
+                    
+                    material_id = cursor.lastrowid
+                    
+                    # Commit transaction
+                    cursor.execute("COMMIT")
+                    
+                    logger.info(f"Material saved successfully with ID: {material_id}")
+                    st.success(f"✅ Material saved with ID: {material_id}")
+                    return True
+                    
+                except Exception as e:
+                    # Rollback on error
+                    cursor.execute("ROLLBACK")
+                    logger.error(f"Transaction failed, rolled back: {e}")
+                    raise
+                    
+        except Exception as e:
+            logger.error(f"Error saving material with transaction: {e}")
+            return False
+    
+    def verify_material_saved(self, username: str, name: str) -> bool:
+        """Verify material was actually saved to database"""
+        try:
+            from utils import get_user_materials
+            
+            # Fetch materials for this user
+            materials = get_user_materials(username)
+            
+            # Check if the material with this name exists
+            for material in materials:
+                if material.get('name') == name:
+                    return True
+            
+            return False
+        except Exception as e:
+            logger.error(f"Error verifying material: {e}")
+            return False
 
     def fetch_all(self) -> List[Material]:
         """Fetch all materials from database with proper error handling"""
@@ -198,26 +301,39 @@ class DatabaseManager:
             return []
 
     def add(self, mat: Material) -> bool:
-        """Add new material to database with proper error handling"""
+        """FIXED - Add new material with comprehensive error handling and verification"""
         if not self.operations_available:
+            logger.error("Database operations not available")
             st.error("Database operations not available")
             return False
-        
-        try:
-            material_data = mat.to_dict()
-            logger.info(f"Attempting to save material: {material_data}")
-            result = self.save_material(material_data)
             
-            if result is not None:
-                logger.info(f"Material saved successfully with ID: {result}")
-                return True
+        try:
+            logger.info(f"Testing database connection...")
+            if not self.test_database_connection():
+                st.error("❌ Database connection failed")
+                return False
+            
+            st.success("✅ Database connection established")
+            
+            logger.info(f"Saving material with transaction handling...")
+            success = self.save_material_with_transaction(mat)
+            
+            if success:
+                logger.info(f"Verifying material was saved...")
+                if self.verify_material_saved(mat.artist, mat.name):
+                    st.success("✅ Material verified in database!")
+                    return True
+                else:
+                    st.error("❌ Material was not properly saved to database")
+                    return False
             else:
-                logger.error("Material save failed - database returned None")
-                st.error("Failed to save material to database")
+                st.error("❌ Failed to save material to database")
                 return False
                 
         except Exception as e:
-            logger.error(f"Error saving material: {e}")
+            logger.error(f"❌ Exception in add material: {e}")
+            import traceback
+            logger.error(f"Full traceback: {traceback.format_exc()}")
             st.error(f"Database error: {e}")
             return False
 
@@ -256,7 +372,7 @@ class DatabaseManager:
             return False
 
 # ─────────────────────────────────────────────────────────────────────────────
-#  ADVANCED UI COMPONENTS
+#  UI COMPONENTS - FULLY CORRECTED
 # ─────────────────────────────────────────────────────────────────────────────
 class UIComponent(ABC):
     """Abstract base class for UI components"""
@@ -272,7 +388,7 @@ class UIComponent(ABC):
         pass
 
 class StyleManager(UIComponent):
-    """Handles comprehensive brown CSS styling - CORRECTED VERSION"""
+    """Handles comprehensive brown CSS styling - FULLY CORRECTED VERSION"""
     
     def render(self, user_ctx: UserCtx) -> None:
         """Apply comprehensive brown CSS styling with all corrections"""
@@ -284,8 +400,6 @@ class StyleManager(UIComponent):
             --accent: #5C4033;
             --light: #F8F4E8;
             --dark: #343434;
-            --glass-bg: rgba(255, 255, 255, 0.9);
-            --shadow: 0 8px 32px rgba(139, 69, 19, 0.1);
             --brown-light: #D2B48C;
             --brown-medium: #CD853F;
             --brown-dark: #8B4513;
@@ -299,52 +413,112 @@ class StyleManager(UIComponent):
             color: var(--dark);
         }
         
-        /* Material Card - FULLY CORRECTED TRANSPARENT DESIGN */
-        .material-card {
-            background: transparent !important;
-            border-radius: 16px;
-            margin-bottom: 2rem;
-            border: none !important;
-            backdrop-filter: none !important;
-            transition: transform 0.3s ease;
-            animation: fadeInUp 0.3s ease-out;
-        }
-        
-        .material-card:hover {
-            transform: translateY(-3px);
-        }
-        
-        /* Material Title - NO WHITE BOX, PERFECT GRADIENT */
-        .material-title {
-            color: var(--secondary);
-            font-size: 1.6rem;
-            font-weight: 700;
-            margin-bottom: 0.6rem;
-            border-bottom: 3px solid var(--primary);
+        /* Main Title with Gradient */
+        .main-title {
+            color: var(--accent) !important;
+            font-size: 2.8rem;
+            font-weight: 800;
+            text-align: center !important;
+            margin-bottom: 0.5rem;
             background: linear-gradient(135deg, var(--accent), var(--primary));
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
-            line-height: 1.2;
-            text-align: left;
-            letter-spacing: -0.3px;
+            letter-spacing: -0.5px;
         }
         
-        /* Artist Info - CLEAN STYLING */
+        .title-divider {
+            width: 80%;
+            height: 4px;
+            background: linear-gradient(90deg, transparent 0%, var(--primary) 20%, var(--secondary) 50%, var(--accent) 80%, transparent 100%);
+            margin: 1rem auto 2rem auto;
+            border-radius: 2px;
+            box-shadow: 0 2px 4px rgba(139, 69, 19, 0.2);
+        }
+        
+        /* Material Card - FIXED WITH TRANSPARENT DESIGN */
+        .material-card {
+            background: transparent !important;
+            border-radius: 20px;
+            margin-bottom: 2rem;
+            box-shadow: none !important;
+            border: none !important;
+            backdrop-filter: none !important;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            overflow: hidden;
+            position: relative;
+            animation: fadeInUp 0.6s ease-out;
+        }
+        
+        .material-card:hover {
+            transform: translateY(-8px) scale(1.02);
+        }
+        
+        /* Material Card Image Container - ENHANCED */
+        .material-card img {
+            border-radius: 16px;
+            box-shadow: 0 6px 20px rgba(139, 69, 19, 0.25);
+            transition: transform 0.4s ease;
+            margin-bottom: 1.2rem;
+            width: 100%;
+            object-fit: cover;
+            height: 220px;
+        }
+        
+        .material-card:hover img {
+            transform: scale(1.05);
+        }
+        
+        /* Material Title - NO WHITE BOX */
+        .material-title {
+            color: var(--accent) !important;
+            font-size: 1.6rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            line-height: 1.3;
+            background: linear-gradient(135deg, var(--accent), var(--primary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            letter-spacing: -0.3px;
+            text-align: center !important;
+            border-bottom: 3px solid var(--primary);
+            padding-bottom: 0.5rem;
+        }
+        
+        /* Enhanced Artist Name */
         .material-artist {
-            color: var(--secondary);
-            font-size: 1rem;
-            margin-bottom: 0.8rem;
+            font-size: 1.1rem;
+            margin-bottom: 1rem;
+            color: var(--secondary) !important;
+            font-style: italic;
+            font-weight: 500;
             display: flex;
             align-items: center;
             gap: 0.5rem;
-            font-weight: 500;
+            text-align: left !important;
+        }
+        
+        /* Enhanced Price Display */
+        .material-price-display {
+            font-weight: 800;
+            font-size: 1.4rem;
+            color: var(--primary) !important;
+            margin: 1rem 0;
+            background: linear-gradient(135deg, rgba(139, 69, 19, 0.1), rgba(160, 82, 45, 0.15));
+            border-radius: 12px;
+            border-left: 4px solid var(--primary);
+            display: inline-block;
+            text-shadow: none;
+            box-shadow: 0 2px 8px rgba(139, 69, 19, 0.1);
+            font-family: 'Inter', monospace;
+            letter-spacing: 0.5px;
+            text-align: left !important;
         }
         
         /* Category Badge - PROFESSIONAL STYLING */
         .category-badge {
             background: linear-gradient(135deg, rgba(139, 69, 19, 0.15), rgba(160, 82, 45, 0.1));
-            padding: 0.4rem 1rem;
             border-radius: 16px;
             font-size: 0.85rem;
             font-weight: 600;
@@ -354,38 +528,23 @@ class StyleManager(UIComponent):
             border: 1px solid rgba(139, 69, 19, 0.2);
         }
         
-        /* Material Image - ENHANCED STYLING */
-        .material-image {
-            border-radius: 12px;
-            box-shadow: 0 6px 20px rgba(139, 69, 19, 0.25);
-            margin: 1rem 0 1.5rem 0;
-            border: 2px solid var(--brown-light);
-            width: 100%;
-            height: 220px;
-            object-fit: cover;
-            transition: transform 0.4s ease;
-        }
-        
-        .material-image:hover {
-            transform: scale(1.03);
-        }
-        
         /* No Image Placeholder - CORRECTED */
         .no-image-placeholder {
             width: 100%;
             height: 220px;
             background: linear-gradient(135deg, rgba(245, 222, 179, 0.4), rgba(210, 180, 140, 0.3));
-            border-radius: 12px;
+            border-radius: 16px;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            color: var(--brown-medium);
+            color: var(--secondary);
             font-style: italic;
             font-size: 1.1rem;
-            border: 2px dashed var(--brown-medium);
-            margin: 1rem 0 1.5rem 0;
+            border: 2px dashed var(--secondary);
+            margin-bottom: 1.2rem;
             transition: all 0.3s ease;
+            text-align: center !important;
         }
         
         .no-image-placeholder:hover {
@@ -393,53 +552,78 @@ class StyleManager(UIComponent):
             border-color: var(--primary);
         }
         
-        /* Price Display - PROFESSIONAL FORMAT */
-        .material-price-display {
-            color: var(--primary);
-            font-size: 1.4rem;
-            font-weight: 800;
-            margin: 1rem 0;
-            background: linear-gradient(135deg, rgba(139, 69, 19, 0.12), rgba(160, 82, 45, 0.08));
-            border-radius: 12px;
-            display: inline-block;
-            border-left: 5px solid var(--primary);
-            font-family: 'Inter', -apple-system, monospace;
-            letter-spacing: 0.5px;
-            box-shadow: 0 3px 10px rgba(139, 69, 19, 0.15);
-        }
-        
-        /* View Details Expander - CORRECTED STYLING */
-        div[data-testid="stExpander"] {
-            border: 2px solid var(--brown-light) !important;
-            border-radius: 16px !important;
-            overflow: hidden !important;
-            box-shadow: 0 6px 20px rgba(139, 69, 19, 0.2) !important;
-            background: linear-gradient(135deg, rgba(245, 222, 179, 0.15), rgba(210, 180, 140, 0.1)) !important;
-        }
-        
-        .streamlit-expanderHeader {
-            background: linear-gradient(135deg, var(--brown-light), var(--brown-lightest)) !important;
+        /* CORRECTED BUTTONS - Add to Cart */
+        .stButton > button {
+            background: linear-gradient(135deg, var(--primary), var(--secondary)) !important;
+            color: white !important;
             border-radius: 12px !important;
-            border: 2px solid var(--brown-medium) !important;
-            color: var(--brown-darker) !important;
+            border: 2px solid var(--primary) !important;
             font-weight: 700 !important;
-            font-size: 1.05rem !important;
+            font-size: 0.95rem !important;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+            width: 100% !important;
+            margin: 0.8rem 0 !important;
+            cursor: pointer !important;
+            box-shadow: 0 4px 12px rgba(139, 69, 19, 0.25) !important;
+            text-transform: uppercase !important;
+            letter-spacing: 0.8px !important;
+            min-height: 48px !important;
+            text-align: center !important;
+            display: block !important;
+            position: relative !important;
+            z-index: 1 !important;
+        }
+        
+        .stButton > button:hover {
+            background: linear-gradient(135deg, var(--accent), var(--primary)) !important;
+            transform: translateY(-3px) scale(1.03) !important;
+            box-shadow: 0 8px 25px rgba(139, 69, 19, 0.35) !important;
+            border-color: var(--accent) !important;
+        }
+        
+        .stButton > button:active {
+            transform: translateY(-1px) scale(1.01) !important;
+            box-shadow: 0 4px 15px rgba(139, 69, 19, 0.3) !important;
+        }
+        
+        .stButton > button:focus {
+            outline: 3px solid var(--primary) !important;
+            outline-offset: 2px !important;
+        }
+        
+        /* Enhanced Expander - CORRECTED */
+        .streamlit-expanderHeader {
+            background: linear-gradient(135deg, var(--primary), var(--secondary)) !important;
+            color: white !important;
+            font-weight: 600 !important;
+            border-radius: 12px !important;
+            text-transform: uppercase !important;
+            letter-spacing: 0.8px !important;
+            font-size: 0.9rem !important;
             transition: all 0.3s ease !important;
+            text-align: center !important;
+            margin-top: 1rem !important;
         }
         
         .streamlit-expanderHeader:hover {
-            background: linear-gradient(135deg, var(--brown-medium), var(--brown-light)) !important;
-            border-color: var(--primary) !important;
-            color: white !important;
+            background: linear-gradient(135deg, var(--accent), var(--primary)) !important;
             transform: scale(1.02) !important;
-            box-shadow: 0 4px 15px rgba(139, 69, 19, 0.25) !important;
         }
         
-        /* Details Section - CORRECTED LAYOUT */
+        div[data-testid="stExpander"] {
+            border: 2px solid rgba(139, 69, 19, 0.15) !important;
+            border-radius: 12px !important;
+            overflow: hidden !important;
+            margin: 1rem 0 !important;
+            box-shadow: 0 4px 12px rgba(139, 69, 19, 0.1) !important;
+            background: linear-gradient(135deg, rgba(245, 222, 179, 0.15), rgba(210, 180, 140, 0.1)) !important;
+        }
+        
+        /* Details Section - CORRECTED */
         .details-section {
             background: linear-gradient(135deg, rgba(245, 222, 179, 0.25), rgba(210, 180, 140, 0.15));
             border-radius: 12px;
-            border: 1px solid var(--brown-light);
+            border: 1px solid rgba(139, 69, 19, 0.15);
             margin: 1rem 0;
             box-shadow: inset 0 2px 4px rgba(139, 69, 19, 0.1);
         }
@@ -470,87 +654,59 @@ class StyleManager(UIComponent):
             display: flex;
             align-items: center;
             gap: 0.5rem;
+            text-align: left !important;
         }
         
         .detail-value {
             color: var(--dark);
             line-height: 1.7;
-            text-align: justify;
+            text-align: justify !important;
+            text-justify: inter-word !important;
             font-size: 0.95rem;
         }
         
         /* Description Special Styling - ENHANCED */
         .description-content {
             background: linear-gradient(135deg, rgba(255, 255, 255, 0.6), rgba(245, 222, 179, 0.3));
+            padding: 1rem;
             border-radius: 10px;
             border-left: 4px solid var(--primary);
-            text-align: justify;
+            text-align: justify !important;
+            text-justify: inter-word !important;
             line-height: 1.7;
             margin-top: 0.5rem;
             box-shadow: 0 2px 8px rgba(139, 69, 19, 0.1);
             font-size: 0.95rem;
         }
         
-        /* ALL BROWN BUTTONS - PERFECTED */
-        .stButton > button {
-            background: linear-gradient(135deg, var(--primary), var(--secondary)) !important;
-            color: white !important;
-            border: 2px solid var(--brown-medium) !important;
-            border-radius: 12px !important;
-            font-weight: 700 !important;
-            text-transform: uppercase !important;
-            letter-spacing: 1px !important;
-            font-size: 0.95rem !important;
-            box-shadow: 
-                0 6px 20px rgba(139, 69, 19, 0.35),
-                inset 0 2px 0 rgba(245, 222, 179, 0.3) !important;
-            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1) !important;
-            cursor: pointer !important;
-            width: 100% !important;
-            margin-top: 1rem !important;
+        /* Form Container - ENHANCED */
+        .form-container {
+            background: linear-gradient(135deg, rgba(245, 222, 179, 0.3), rgba(210, 180, 140, 0.2));
+            border-radius: 12px;
+            border: 1px solid rgba(139, 69, 19, 0.2);
+            margin: 1rem 0;
         }
         
-        .stButton > button:hover {
-            background: linear-gradient(135deg, var(--accent), var(--brown-dark)) !important;
-            transform: translateY(-4px) scale(1.05) !important;
-            box-shadow: 
-                0 12px 35px rgba(139, 69, 19, 0.45),
-                inset 0 2px 0 rgba(245, 222, 179, 0.4) !important;
-            border-color: var(--brown-light) !important;
-        }
-        
-        .stButton > button:active {
-            transform: translateY(-1px) scale(1.02) !important;
-            box-shadow: 0 4px 15px rgba(139, 69, 19, 0.4) !important;
-        }
-        
-        .stButton > button:focus {
-            outline: none !important;
-            box-shadow: 
-                0 6px 20px rgba(139, 69, 19, 0.35),
-                0 0 0 4px rgba(139, 69, 19, 0.3) !important;
-        }
-        
-        /* Form Styling - ALL BROWN */
+        /* Form Styling - IMPROVED */
         .stTextInput > div > div > input,
         .stTextArea > div > div > textarea,
-        .stSelectbox > div > div > select,
-        .stNumberInput > div > div > input {
+        .stNumberInput > div > div > input,
+        .stSelectbox > div > div > select {
             border-radius: 10px !important;
             border: 2px solid var(--brown-light) !important;
-            background: linear-gradient(135deg, rgba(245, 222, 179, 0.8), rgba(255, 255, 255, 0.9)) !important;
+            background: rgba(255, 255, 255, 0.95) !important;
+            font-size: 1rem !important;
             transition: all 0.3s ease !important;
-            color: var(--brown-darker) !important;
-            font-weight: 500 !important;
+            color: var(--dark) !important;
         }
         
         .stTextInput > div > div > input:focus,
         .stTextArea > div > div > textarea:focus,
-        .stSelectbox > div > div > select:focus,
-        .stNumberInput > div > div > input:focus {
+        .stNumberInput > div > div > input:focus,
+        .stSelectbox > div > div > select:focus {
             border-color: var(--primary) !important;
             box-shadow: 0 0 0 3px rgba(139, 69, 19, 0.15) !important;
-            background: linear-gradient(135deg, rgba(245, 222, 179, 0.9), white) !important;
+            background: white !important;
             outline: none !important;
         }
         
@@ -560,11 +716,11 @@ class StyleManager(UIComponent):
             font-style: italic !important;
         }
         
-        /* File Uploader - ALL BROWN */
+        /* File Uploader - ENHANCED */
         .stFileUploader {
             background: linear-gradient(135deg, rgba(245, 222, 179, 0.3), rgba(210, 180, 140, 0.2)) !important;
             border: 3px dashed var(--secondary) !important;
-            border-radius: 16px !important;
+            border-radius: 16px !important
             text-align: center !important;
             transition: all 0.3s ease !important;
         }
@@ -575,68 +731,25 @@ class StyleManager(UIComponent):
             box-shadow: 0 4px 12px rgba(139, 69, 19, 0.2) !important;
         }
         
-        /* Success/Info/Warning/Error alerts - ALL BROWN */
-        .stAlert {
-            border-radius: 12px !important;
-            border: 2px solid !important;
-            box-shadow: 0 4px 12px rgba(139, 69, 19, 0.15) !important;
-            margin: 1rem 0 !important;
-        }
-        
-        .stSuccess {
-            background: linear-gradient(135deg, rgba(139, 69, 19, 0.1), rgba(160, 82, 45, 0.05)) !important;
-            border-color: var(--brown-medium) !important;
-            color: var(--brown-darker) !important;
-        }
-        
-        .stError {
-            background: linear-gradient(135deg, rgba(92, 64, 51, 0.15), rgba(139, 69, 19, 0.1)) !important;
-            border-color: var(--accent) !important;
-            color: var(--brown-darker) !important;
-        }
-        
-        .stWarning {
-            background: linear-gradient(135deg, rgba(205, 133, 63, 0.15), rgba(210, 180, 140, 0.1)) !important;
-            border-color: var(--brown-medium) !important;
-            color: var(--brown-darker) !important;
-        }
-        
-        .stInfo {
-            background: linear-gradient(135deg, rgba(139, 69, 19, 0.1), rgba(245, 222, 179, 0.2)) !important;
-            border-color: var(--primary) !important;
-            color: var(--brown-darker) !important;
-        }
-        
-        /* Tab Styling - ALL BROWN */
-        .stTabs [data-baseweb="tab-list"] {
-            gap: 2px;
+        /* Brown Cards */
+        .brown-card {
             background: linear-gradient(135deg, rgba(245, 222, 179, 0.3), rgba(210, 180, 140, 0.2));
+            border: 2px solid var(--brown-light);
             border-radius: 12px;
-            margin-bottom: 2rem;
+            margin: 1rem 0;
+            box-shadow: 0 4px 12px rgba(139, 69, 19, 0.15);
         }
         
-        .stTabs [data-baseweb="tab"] {
-            background: linear-gradient(135deg, var(--brown-light), var(--brown-lightest)) !important;
-            border-radius: 8px !important;
-            color: var(--brown-darker) !important;
-            font-weight: 600 !important;
-            transition: all 0.3s ease !important;
-            border: 2px solid var(--brown-medium) !important;
+        /* Gallery Header */
+        .gallery-header {
+            color: var(--primary) !important;
+            font-size: 2rem;
+            font-weight: 700;
+            text-align: center !important;
+            margin-bottom: 1.5rem;
         }
         
-        .stTabs [data-baseweb="tab"]:hover {
-            background: linear-gradient(135deg, var(--brown-medium), var(--brown-light)) !important;
-            color: white !important;
-            transform: scale(1.02) !important;
-        }
-        
-        .stTabs [aria-selected="true"] {
-            background: linear-gradient(135deg, var(--primary), var(--secondary)) !important;
-            color: white !important;
-            border-color: var(--accent) !important;
-        }
-        
-        /* Role Badge - ALL BROWN VARIATIONS */
+        /* Role Badge */
         .role-badge {
             display: inline-flex;
             align-items: center;
@@ -668,14 +781,9 @@ class StyleManager(UIComponent):
             border-color: var(--brown-dark);
         }
         
-        /* Spinner - BROWN */
-        .stSpinner > div {
-            border-color: var(--primary) transparent var(--primary) transparent !important;
-        }
-        
         /* Empty State */
         .empty-state {
-            text-align: center;
+            text-align: center !important;
             font-style: italic;
             color: var(--secondary);
             background: linear-gradient(135deg, rgba(245, 222, 179, 0.5), rgba(210, 180, 140, 0.3));
@@ -689,7 +797,7 @@ class StyleManager(UIComponent):
             display: block;
             font-size: 3rem;
             margin-bottom: 1rem;
-            color: var(--brown-medium);
+            color: var(--secondary);
         }
         
         /* Custom brown elements */
@@ -700,47 +808,14 @@ class StyleManager(UIComponent):
             border-radius: 1px;
         }
         
-        .brown-card {
-            background: linear-gradient(135deg, rgba(245, 222, 179, 0.3), rgba(210, 180, 140, 0.2));
-            border: 2px solid var(--brown-light);
-            border-radius: 12p;
-            margin: 1rem 0;
-            box-shadow: 0 4px 12px rgba(139, 69, 19, 0.15);
-        }
-        
-        /* Headers - ALL BROWN */
-        h1, h2, h3, h4, h5, h6 {
-            color: var(--brown-darker) !important;
-            font-weight: 700 !important;
-        }
-        
-        h1 {
-            background: linear-gradient(135deg, var(--accent), var(--primary)) !important;
-            -webkit-background-clip: text !important;
-            -webkit-text-fill-color: transparent !important;
-            background-clip: text !important;
-        }
-        
-        h2, h3 {
-            color: var(--primary) !important;
-            border-bottom: 2px solid var(--brown-light) !important;
-        }
-        
-        /* Title divider */
-        .title-divider {
-            width: 80%;
-            height: 4px;
-            background: linear-gradient(90deg, transparent 0%, var(--primary) 20%, var(--secondary) 50%, var(--accent) 80%, transparent 100%);
-            margin: 1rem auto 2rem auto;
-            border-radius: 2px;
-            box-shadow: 0 2px 4px rgba(139, 69, 19, 0.2);
-        }
-        
-        /* Responsive Design */
+        /* Mobile Responsiveness - ENHANCED */
         @media (max-width: 768px) {
+            .main-title {
+                font-size: 2.2rem;
+            }
+            
             .material-card {
                 margin-bottom: 1.5rem;
-                border-radius: 12px;
             }
             
             .material-title {
@@ -749,19 +824,20 @@ class StyleManager(UIComponent):
             
             .material-price-display {
                 font-size: 1.2rem;
+                padding: 0.6rem 1rem;
             }
             
             .stButton > button {
-                padding: 12px 24px !important;
                 font-size: 0.9rem !important;
+                min-height: 44px !important;
             }
         }
         
-        /* Animation for loading states */
+        /* Animation */
         @keyframes fadeInUp {
             from {
                 opacity: 0;
-                transform: translateY(20px);
+                transform: translateY(30px);
             }
             to {
                 opacity: 1;
@@ -770,27 +846,7 @@ class StyleManager(UIComponent):
         }
         
         .material-card {
-            animation: fadeInUp 0.4s ease-out;
-        }
-        
-        /* Scrollbar Styling - ALL BROWN */
-        ::-webkit-scrollbar {
-            width: 12px;
-        }
-        
-        ::-webkit-scrollbar-track {
-            background: var(--brown-lightest);
-            border-radius: 6px;
-        }
-        
-        ::-webkit-scrollbar-thumb {
-            background: linear-gradient(135deg, var(--secondary), var(--primary));
-            border-radius: 6px;
-            border: 2px solid var(--brown-lightest);
-        }
-        
-        ::-webkit-scrollbar-thumb:hover {
-            background: linear-gradient(135deg, var(--primary), var(--accent));
+            animation: fadeInUp 0.6s ease-out;
         }
         </style>
         """, unsafe_allow_html=True)
@@ -803,9 +859,7 @@ class BrowseTab(UIComponent):
         all_materials = self.db.fetch_all()
 
         if all_materials:
-            st.markdown(f'<div class="brown-card" style="text-align: center;">', unsafe_allow_html=True)
-            st.markdown(f"**🛍️ Found {len(all_materials)} quality art materials available**")
-            st.markdown('</div>', unsafe_allow_html=True)
+            # No message displayed - clean display of materials
             
             cols = st.columns(self.cfg.columns)
             for idx, mat in enumerate(all_materials):
@@ -844,19 +898,13 @@ class BrowseTab(UIComponent):
                         st.markdown(f'<div class="description-content">{mat.description}</div>', unsafe_allow_html=True)
                         st.markdown('</div>', unsafe_allow_html=True)
                         
-                        
-                        # Upload Date
-                        st.markdown('<div class="detail-item">', unsafe_allow_html=True)
-                        st.markdown('<div class="detail-label">📅 Upload Date</div>', unsafe_allow_html=True)
-                        st.markdown(f'<div class="detail-value">{mat.listed_date}</div>', unsafe_allow_html=True)
-                        st.markdown('</div>', unsafe_allow_html=True)
-                        
                         st.markdown('</div>', unsafe_allow_html=True)
                     
-                    # Add to cart button
+                    # Add to cart button BELOW the expander
                     if st.button("🛒 Add to Cart", key=f"cart_{mat.id}_{user_ctx.username}"):
                         if self.db.add_to_cart_item(user_ctx.username, mat):
                             st.success(f"✅ Added {mat.name} to cart!")
+                            st.switch_page("pages/10_Cart.py")
                         else:
                             st.error("❌ Could not add to cart at this time.")
                     
@@ -873,10 +921,10 @@ class BrowseTab(UIComponent):
             st.markdown('</div>', unsafe_allow_html=True)
 
 class YourMaterialsTab(UIComponent):
-    """Your materials tab component - CORRECTED VERSION"""
+    """Your materials tab component - CORRECTED VERSION WITH FIXED FORM"""
     
     def render(self, user_ctx: UserCtx) -> None:
-        """Render your materials tab with corrected styling"""
+        """Render your materials tab with corrected styling and fixed form"""
         # Show upload form first
         self._render_upload_form(user_ctx)
         
@@ -892,7 +940,7 @@ class YourMaterialsTab(UIComponent):
         if yours:
             st.markdown(f'<h3 style="color: var(--primary);">📦 Your Listed Materials ({len(yours)})</h3>', 
                        unsafe_allow_html=True)
-
+            
             # Use columns layout like browse tab
             cols = st.columns(self.cfg.columns)
             for idx, mat in enumerate(yours):
@@ -931,27 +979,9 @@ class YourMaterialsTab(UIComponent):
                         st.markdown(f'<div class="description-content">{mat.description}</div>', unsafe_allow_html=True)
                         st.markdown('</div>', unsafe_allow_html=True)
                         
-                        # Materials
+                        # Listed Date
                         st.markdown('<div class="detail-item">', unsafe_allow_html=True)
-                        st.markdown('<div class="detail-label">🎨 Materials</div>', unsafe_allow_html=True)
-                        st.markdown(f'<div class="detail-value">{mat.category}</div>', unsafe_allow_html=True)
-                        st.markdown('</div>', unsafe_allow_html=True)
-                        
-                        # Artist
-                        st.markdown('<div class="detail-item">', unsafe_allow_html=True)
-                        st.markdown('<div class="detail-label">👨‍🎨 Artist</div>', unsafe_allow_html=True)
-                        st.markdown(f'<div class="detail-value">{mat.artist}</div>', unsafe_allow_html=True)
-                        st.markdown('</div>', unsafe_allow_html=True)
-                        
-                        # Style
-                        st.markdown('<div class="detail-item">', unsafe_allow_html=True)
-                        st.markdown('<div class="detail-label">🏷️ Style</div>', unsafe_allow_html=True)
-                        st.markdown(f'<div class="detail-value">{mat.category}</div>', unsafe_allow_html=True)
-                        st.markdown('</div>', unsafe_allow_html=True)
-                        
-                        # Upload Date
-                        st.markdown('<div class="detail-item">', unsafe_allow_html=True)
-                        st.markdown('<div class="detail-label">📅 Upload Date</div>', unsafe_allow_html=True)
+                        st.markdown('<div class="detail-label">📅 Listed Date</div>', unsafe_allow_html=True)
                         st.markdown(f'<div class="detail-value">{mat.listed_date}</div>', unsafe_allow_html=True)
                         st.markdown('</div>', unsafe_allow_html=True)
                         
@@ -983,20 +1013,15 @@ class YourMaterialsTab(UIComponent):
             st.markdown('</div>', unsafe_allow_html=True)
     
     def _render_upload_form(self, user_ctx: UserCtx) -> None:
-        """Render material upload form with brown theme"""
+        """FIXED - Render material upload form with guaranteed database saving"""
         st.markdown('<h3 style="color: var(--accent);">➕ List New Art Material</h3>', unsafe_allow_html=True)
-        
-        # Initialize form counter if not exists
-        if 'material_form_counter' not in st.session_state:
-            st.session_state.material_form_counter = 0
-        
-        # Use fixed form key with counter
-        form_key = f"new_material_form_{st.session_state.material_form_counter}"
         
         # Form container with brown styling
         st.markdown('<div class="brown-card">', unsafe_allow_html=True)
         
-        with st.form(form_key, clear_on_submit=True):
+        form_key = "material_upload_form"
+        
+        with st.form(key=form_key, clear_on_submit=False):  # Don't auto-clear
             col1, col2 = st.columns(2)
             
             with col1:
@@ -1035,7 +1060,7 @@ class YourMaterialsTab(UIComponent):
                     type=self.cfg.allowed_types,
                     help="Add a clear photo of your material to attract buyers"
                 )
-
+            
             description = st.text_area(
                 "Detailed Description*",
                 height=120,
@@ -1046,71 +1071,106 @@ class YourMaterialsTab(UIComponent):
             submitted = st.form_submit_button("📤 List Material", use_container_width=True)
             
             if submitted:
-                success = self._handle_material_submission(user_ctx, name, price, category, 
-                                               description, image_file)
-                if success:
-                    # Increment counter to prevent form key conflicts
-                    st.session_state.material_form_counter += 1
-                    st.rerun()
+                with st.status("Processing material upload...") as status:
+                    # Validation
+                    validation_errors = self._validate_form_data(name, price, category, image_file)
+                    
+                    if validation_errors:
+                        for error in validation_errors:
+                            st.error(f"❌ {error}")
+                    else:
+                        # Process submission with detailed status updates
+                        success = self._process_material_submission_with_status(
+                            user_ctx, name, price, category, description, image_file, status
+                        )
+                        
+                        if success:
+                            status.update(label="Material listed successfully!", state="complete")
+                            st.success("✅ Material listed successfully!")
+                            st.balloons()
+                            st.rerun()
         
         st.markdown('</div>', unsafe_allow_html=True)
     
-    def _handle_material_submission(self, user_ctx: UserCtx, name: str, price: float, 
-                                  category: str, description: str, image_file: Any) -> bool:
-        """Handle material form submission with comprehensive validation"""
-        
-        # Enhanced validation
-        validation_errors = []
+    def _validate_form_data(self, name: str, price: float, category: str, image_file) -> list:
+        """Comprehensive form validation"""
+        errors = []
         
         if not name or len(name.strip()) < 3:
-            validation_errors.append("Material name must be at least 3 characters long")
+            errors.append("Material name must be at least 3 characters long")
         
         if price <= 0:
-            validation_errors.append("Price must be greater than 0")
+            errors.append("Price must be greater than 0")
         
         if category == "Select Category":
-            validation_errors.append("Please select a category")
+            errors.append("Please select a category")
         
-        if not description or len(description.strip()) < 10:
-            validation_errors.append("Description must be at least 10 characters long")
+        return errors
+    
+    def _process_material_submission_with_status(
+        self, user_ctx: UserCtx, name: str, price: float, category: str, 
+        description: str, image_file, status_container
+    ) -> bool:
+        """Process material submission with detailed status updates and guaranteed database saving"""
         
-        # Display validation errors
-        if validation_errors:
-            for error in validation_errors:
-                st.error(f"❌ {error}")
-            return False
-
         try:
-            with st.spinner("🔄 Listing your material..."):
-                # Save image if provided
-                img_path = None
-                if image_file:
-                    img_path = self.files.save(image_file)
-                    if not img_path:
-                        st.warning("⚠️ Image upload failed, but material will still be listed")
-
-                # Create new material
-                new_mat = Material(
-                    id=0,  # Will be assigned by database
-                    name=name.strip(),
-                    price=price,
-                    category=category,
-                    description=description.strip(),
-                    image=img_path,
-                    artist=user_ctx.username
-                )
-
-                if self.db.add(new_mat):
-                    st.success("✅ Material listed successfully!")
-                    st.balloons()
+            status_container.update(label="Validating data...")
+            
+            # Save uploaded file first
+            image_path = None
+            if image_file:
+                status_container.update(label="Saving image file...")
+                image_path = self.files.save(image_file)
+                if not image_path:
+                    st.error("❌ Failed to save image file")
+                    return False
+                st.success(f"✅ Image saved: {os.path.basename(image_path)}")
+            
+            status_container.update(label="Preparing material data...")
+            
+            # Create material data
+            material = Material(
+                id=0,  # Will be assigned by database
+                name=name.strip(),
+                price=price,
+                category=category,
+                description=description.strip(),
+                artist=user_ctx.username,
+                image=image_path
+            )
+            
+            status_container.update(label="Testing database connection...")
+            
+            # Test database connection explicitly
+            if not self.db.test_database_connection():
+                st.error("❌ Database connection failed")
+                return False
+            
+            st.success("✅ Database connection established")
+            
+            status_container.update(label="Saving material to database...")
+            
+            # Save to database with explicit transaction handling
+            success = self.db.add(material)
+            
+            if success:
+                status_container.update(label="Verifying data was saved...")
+                # Verify the material was actually saved by fetching it back
+                if self.db.verify_material_saved(user_ctx.username, name):
+                    st.success("✅ Material verified in database!")
                     return True
                 else:
-                    st.error("❌ Failed to list material. Please check database connection.")
+                    st.error("❌ Material was not properly saved to database")
                     return False
-                    
+            else:
+                st.error("❌ Failed to save material to database")
+                return False
+                
         except Exception as e:
-            logger.error(f"Error listing material: {e}")
-            st.error(f"❌ Failed to list material: {str(e)}")
+            logger.error(f"Exception in material submission: {e}")
+            import traceback
+            logger.error(f"Full traceback: {traceback.format_exc()}")
+            st.error(f"❌ Upload failed: {str(e)}")
             return False
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -1159,12 +1219,13 @@ class MaterialsApplication:
     def _render_header(self, user_ctx: UserCtx) -> None:
         """Render page header with brown theme"""
         # Header container
-        st.markdown('<div class="brown-card" style="text-align: center; padding: 2rem; margin-bottom: 2rem;">', unsafe_allow_html=True)
+        st.markdown(f'<h1 class="main-title">{self.cfg.page_title}</h1>', unsafe_allow_html=True)
+        st.markdown('<div class="title-divider"></div>', unsafe_allow_html=True)
+        
+        # st.markdown('<div class="brown-card" style="text-align: center; padding: 2rem; margin-bottom: 2rem;">', unsafe_allow_html=True)
         
         col1, col2 = st.columns([3, 1])
         with col1:
-            st.markdown('<h1 style="color: var(--accent);">🎨 Art Materials Marketplace</h1>', 
-                       unsafe_allow_html=True)
             st.markdown('<p style="color: var(--secondary); font-size: 1.1rem; font-weight: 600;">Discover and share quality art supplies from fellow artists</p>', 
                        unsafe_allow_html=True)
         with col2:
@@ -1173,7 +1234,6 @@ class MaterialsApplication:
                        unsafe_allow_html=True)
         
         st.markdown('</div>', unsafe_allow_html=True)
-        st.markdown('<div class="title-divider"></div>', unsafe_allow_html=True)
     
     def _render_tabs(self, user_ctx: UserCtx) -> None:
         """Render tab interface based on user role with brown theme"""
