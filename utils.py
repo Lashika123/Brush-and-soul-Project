@@ -1,23 +1,3 @@
-"""
-
-utils.py
-
---------
-
-Complete utility functions for Brush and Soul art platform with Payment Integration.
-
-Uses PyMySQL for database operations - Bio and Website in Portfolio ONLY.
-
-ENHANCED: Date formatting in dd-mm-yyyy format throughout the application
-
-NO JSON USAGE - Pure Python data structures only
-
-FIXED: All HTML entity encoding issues resolved + Complete CRUD for all entities
-
-ENHANCED: Customer can view artist portfolios - FIXED get_artists_with_content()
-
-"""
-
 from __future__ import annotations
 
 import hashlib
