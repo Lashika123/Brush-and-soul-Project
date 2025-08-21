@@ -1,10 +1,3 @@
-"""
-pages/10_Cart.py
----------------
-Complete Enhanced Python implementation with Payment Methods Integration
-FIXED: Step indicator HTML structure and all payment system components
-"""
-
 from __future__ import annotations
 
 import logging
