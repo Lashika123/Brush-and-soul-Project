@@ -1,11 +1,3 @@
-"""
-pages/04_Dashboard.py
---------------------
-Advanced Python dashboard with database backend integration.
-Maintains exact UI and logic from the original file.
-FIXED: Duplicate key error by ensuring all Streamlit element keys are unique.
-"""
-
 from __future__ import annotations
 
 import datetime
