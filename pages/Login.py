@@ -1,10 +1,3 @@
-"""
-pages/Login.py
---------------
-Advanced Python login page with database backend integration.
-Removes all JSON concepts and uses modern Python patterns.
-"""
-
 from __future__ import annotations
 
 import base64
